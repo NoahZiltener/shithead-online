@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.deno/
+.env
+coverage/
+.DS_Store
+deno.lock
