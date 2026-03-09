@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHITHEAD — Card Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt: #16402a;
+    --felt-light: #1e5235;
+    --bg: #0e0e18;
+    --neon: #f72585;
+    --neon2: #7209b7;
+    --gold: #ffbe0b;
+    --cream: #fdf6e3;
+    --ink: #1a1a1a;
+    --text: #e8e8e8;
+    --muted: #666;
+    --red: #e63946;
+    --black-suit: #1a1a2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+  }
+
+  /* ─── LOBBY SCREEN ─── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ─── LOBBY ─── */
+  #lobby {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 2rem;
+  }
+
+  .lobby-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 100%, rgba(22,64,42,0.6) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 20%, rgba(247,37,133,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(114,9,183,0.1) 0%, transparent 60%);
+  }
+
+  .logo {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .logo-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(5rem, 15vw, 11rem);
+    line-height: 0.9;
+    letter-spacing: 0.05em;
+    color: var(--cream);
+    text-shadow:
+      0 0 40px rgba(247,37,133,0.4),
+      0 0 80px rgba(247,37,133,0.15),
+      4px 4px 0 rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  .logo-title span {
+    color: var(--neon);
+    text-shadow:
+      0 0 20px var(--neon),
+      0 0 60px rgba(247,37,133,0.5);
+  }
+
+  .logo-sub {
+    font-family: 'Caveat', cursive;
+    font-size: 1.4rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-top: 0.5rem;
+  }
+
+  .lobby-card {
+    position: relative;
+    z-index: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 2.5rem 3rem;
+    width: 100%;
+    max-width: 420px;
+    backdrop-filter: blur(12px);
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .lobby-card h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+  }
+
+  .input-group {
+    margin-bottom: 1rem;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .input-group input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .input-group input:focus {
+    border-color: var(--neon);
+    box-shadow: 0 0 0 3px rgba(247,37,133,0.15);
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--neon);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    padding: 0.85rem;
+    cursor: pointer;
+    margin-top: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(247,37,133,0.35);
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(247,37,133,0.5);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .btn-secondary {
+    width: 100%;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.1em;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.04);
+  }
+
+  /* ─── WAITING ROOM ─── */
+  #waiting {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6rem 1.5rem 2rem;
+    position: relative;
+  }
+
+  .waiting-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(22,64,42,0.4) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(247,37,133,0.05) 0%, transparent 60%);
+  }
+
+  /* ─── ROOM CODE STRIP ─── */
+  .w-header {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.5s ease both;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .w-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+  }
+
+  .room-code-block {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255,190,11,0.07);
+    border: 1px solid rgba(255,190,11,0.2);
+    border-radius: 10px;
+    padding: 0.5rem 1rem 0.5rem 1.25rem;
+  }
+
+  .room-code-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(255,190,11,0.4);
+    line-height: 1;
+  }
+
+  .copy-btn {
+    background: rgba(255,190,11,0.12);
+    border: 1px solid rgba(255,190,11,0.25);
+    color: var(--gold);
+    border-radius: 6px;
+    padding: 0.35rem 0.75rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover { background: rgba(255,190,11,0.22); border-color: rgba(255,190,11,0.5); }
+  .copy-btn.copied { color: #4ade80; border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
+
+  /* ─── MAIN LAYOUT ─── */
+  .w-body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 860px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.25rem;
+    align-items: start;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  /* ─── PLAYERS PANEL ─── */
+  .players-panel {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .panel-head-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+
+  .player-count-badge {
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 0.15rem 0.6rem;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+
+  .player-row:last-child { border-bottom: none; }
+  .player-row:hover { background: rgba(255,255,255,0.02); }
+
+  .p-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    color: var(--cream);
+    flex-shrink: 0;
+  }
+
+  .p-avatar.is-you {
+    border-color: var(--neon);
+    box-shadow: 0 0 10px rgba(247,37,133,0.35);
+  }
+
+  .p-avatar.is-host {
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255,190,11,0.3);
+  }
+
+  .p-avatar.empty-slot {
+    border-style: dashed;
+    border-color: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.12);
+    font-size: 1.3rem;
+  }
+
+  .p-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .p-name {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .p-name.is-you { color: var(--neon); }
+  .p-name.empty-slot { color: rgba(255,255,255,0.2); font-style: italic; font-weight: 300; font-size: 0.85rem; }
+
+  .p-badges {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+  }
+
+  .badge {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .badge-host { background: rgba(255,190,11,0.15); color: var(--gold); border: 1px solid rgba(255,190,11,0.25); }
+  .badge-you  { background: rgba(247,37,133,0.12); color: var(--neon); border: 1px solid rgba(247,37,133,0.25); }
+  .badge-ready { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+
+  .kick-btn {
+    background: none;
+    border: 1px solid rgba(230,57,70,0.25);
+    color: rgba(230,57,70,0.5);
+    border-radius: 5px;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .kick-btn:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(230,57,70,0.08);
+  }
+
+  /* ─── RIGHT COLUMN ─── */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  /* ─── SETTINGS PANEL ─── */
+  .settings-panel {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .settings-panel .panel-head {
+    padding: 1rem 1.25rem;
+  }
+
+  .setting-row {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .setting-row:last-child { border-bottom: none; }
+
+  .setting-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .deck-toggle {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .deck-option {
+    flex: 1;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 0.7rem 0.5rem;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  .deck-option.selected {
+    border-color: var(--neon);
+    background: rgba(247,37,133,0.08);
+  }
+
+  .deck-option-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .deck-option-desc {
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  .deck-option.selected .deck-option-name { color: var(--neon); }
+
+  .deck-option .selected-dot {
+    display: none;
+    width: 6px; height: 6px;
+    background: var(--neon);
+    border-radius: 50%;
+    position: absolute;
+    top: 8px; right: 8px;
+    box-shadow: 0 0 6px var(--neon);
+  }
+
+  .deck-option.selected .selected-dot { display: block; }
+
+  .setting-note {
+    font-family: 'Caveat', cursive;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.2);
+    padding: 0.6rem 1.25rem;
+    font-style: italic;
+  }
+
+  /* ─── START PANEL ─── */
+  .start-panel {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .start-status {
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .btn-start {
+    width: 100%;
+    background: var(--gold);
+    color: var(--ink);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.15em;
+    padding: 0.8rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(255,190,11,0.4);
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+
+  .btn-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 36px rgba(255,190,11,0.55);
+    animation: none;
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 4px 24px rgba(255,190,11,0.35); }
+    50% { box-shadow: 0 4px 40px rgba(255,190,11,0.65); }
+  }
+
+  /* ─── GAME TABLE ─── */
+  #game {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 120% 60% at 50% 50%, var(--felt) 0%, #0e1a13 55%, var(--bg) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ─── TOP OPPONENTS ─── */
+  .opponents-row {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    width: 100%;
+    padding: 0.5rem 1rem;
+  }
+
+  .opponent-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    animation: fadeDown 0.5s ease both;
+  }
+
+  .opponent-name-tag {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: rgba(0,0,0,0.4);
+    padding: 0.2rem 0.7rem;
+    border-radius: 4px;
+  }
+
+  .opp-facedown-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .opp-faceup-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  /* Mini cards for opponents */
+  .mini-card {
+    width: 28px;
+    height: 40px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    position: relative;
+  }
+
+  .mini-card.back {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+    border: 1px solid rgba(255,255,255,0.15);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,0.03) 0px,
+      rgba(255,255,255,0.03) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+  }
+
+  .mini-card.front {
+    background: var(--cream);
+    color: var(--red);
+    border: 1px solid rgba(0,0,0,0.1);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+  }
+
+  .mini-card.front.black { color: var(--ink); }
+
+  .opp-hand-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── CENTER TABLE ─── */
+  .center-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .center-row {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+  }
+
+  .pile-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    text-align: center;
+    margin-top: 0.4rem;
+  }
+
+  /* Main cards */
+  .card {
+    width: 72px;
+    height: 104px;
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 6px 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s;
+    cursor: default;
+  }
+
+  .card.back {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+    border: 1px solid rgba(255,255,255,0.15);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,0.04) 0px,
+      rgba(255,255,255,0.04) 2px,
+      transparent 2px,
+      transparent 10px
+    );
+    box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+  }
+
+  .card.front {
+    background: var(--cream);
+    border: 1px solid rgba(0,0,0,0.08);
+    color: var(--red);
+    box-shadow: 3px 6px 16px rgba(0,0,0,0.5);
+  }
+
+  .card.front.black-suit { color: var(--ink); }
+
+  .card-rank {
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .card-suit {
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  .card-center-suit {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 1.8rem;
+    opacity: 0.15;
+    transform: rotate(180deg);
+  }
+
+  /* Discard pile (stacked) */
+  .discard-pile {
+    position: relative;
+    width: 72px;
+    height: 104px;
+  }
+
+  .discard-pile .card {
+    position: absolute;
+  }
+
+  .discard-pile .card:nth-child(1) { transform: rotate(-4deg) translate(-3px, 2px); }
+  .discard-pile .card:nth-child(2) { transform: rotate(2deg) translate(1px, -1px); }
+  .discard-pile .card:nth-child(3) { transform: rotate(0deg); }
+
+  /* Special card glow */
+  .card.special {
+    box-shadow: 3px 6px 16px rgba(0,0,0,0.5), 0 0 20px rgba(247,37,133,0.5);
+  }
+
+  /* Draw deck */
+  .draw-deck {
+    position: relative;
+    width: 72px;
+    height: 104px;
+  }
+
+  .draw-deck .card {
+    position: absolute;
+  }
+
+  .draw-deck .card:nth-child(1) { transform: translate(-1px, 2px); }
+  .draw-deck .card:nth-child(2) { transform: translate(0px, 1px); }
+  .draw-deck .card:nth-child(3) { transform: translate(0px, 0px); }
+
+  .deck-count {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  /* ─── YOUR AREA ─── */
+  .your-area {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .your-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .your-facedown-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .your-faceup-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* Your hand — fanned */
+  .your-hand {
+    display: flex;
+    position: relative;
+    height: 120px;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .hand-card {
+    width: 72px;
+    height: 104px;
+    border-radius: 8px;
+    position: absolute;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+
+  .hand-card:hover {
+    transform: translateY(-16px) rotate(0deg) !important;
+    box-shadow: 4px 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(247,37,133,0.25) !important;
+    z-index: 10 !important;
+  }
+
+  /* ─── TURN INDICATOR ─── */
+  .turn-banner {
+    background: rgba(255,190,11,0.1);
+    border: 1px solid rgba(255,190,11,0.3);
+    border-radius: 8px;
+    padding: 0.4rem 1.2rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    animation: blink-border 2s ease-in-out infinite;
+  }
+
+  @keyframes blink-border {
+    0%, 100% { border-color: rgba(255,190,11,0.3); background: rgba(255,190,11,0.08); }
+    50% { border-color: rgba(255,190,11,0.7); background: rgba(255,190,11,0.15); }
+  }
+
+  /* ─── PLAYER NAME TAG ─── */
+  .your-name-tag {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    color: var(--neon);
+    text-shadow: 0 0 10px rgba(247,37,133,0.4);
+  }
+
+  /* ─── NAV ─── */
+  .nav-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background: rgba(14,14,24,0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    color: var(--cream);
+  }
+
+  .nav-logo span { color: var(--neon); }
+
+  .nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .nav-tab {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    padding: 0.35rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+  }
+
+  .nav-tab:hover, .nav-tab.active {
+    border-color: var(--neon);
+    color: var(--neon);
+    background: rgba(247,37,133,0.07);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes cardSlap {
+    0%   { transform: translateY(-40px) rotate(-8deg) scale(1.1); opacity: 0; }
+    60%  { transform: translateY(4px) rotate(1deg) scale(0.98); }
+    80%  { transform: translateY(-2px) rotate(0deg) scale(1.01); }
+    100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  }
+
+  .card-slap { animation: cardSlap 0.35s cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+  /* ─── LOSER BANNER ─── */
+  .loser-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .loser-overlay.show { display: flex; animation: fadeIn 0.4s ease; }
+
+  .loser-crown {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 6rem;
+    color: var(--red);
+    text-shadow: 0 0 40px rgba(230,57,70,0.6);
+    animation: fadeUp 0.5s ease;
+  }
+
+  .loser-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 10vw, 6rem);
+    letter-spacing: 0.1em;
+    color: var(--cream);
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  .loser-name {
+    font-family: 'Caveat', cursive;
+    font-size: 2rem;
+    color: var(--muted);
+    animation: fadeUp 0.5s 0.2s ease both;
+  }
+
+  .card-rain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 199;
+  }
+
+  .rain-card {
+    position: absolute;
+    top: -60px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.6);
+    animation: rainFall linear forwards;
+  }
+
+  @keyframes rainFall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ─── RESPONSIVE PAD ─── */
+  #game { padding-top: 60px; }
+
+  .screen-label {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav class="nav-bar">
+  <div class="nav-logo">SHIT<span>HEAD</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showScreen('lobby', this)">Lobby</button>
+    <button class="nav-tab" onclick="showScreen('waiting', this)">Waiting Room</button>
+    <button class="nav-tab" onclick="showScreen('game', this)">Game Table</button>
+  </div>
+</nav>
+
+<div class="screen-label">Design Preview — Click tabs to navigate</div>
+
+<!-- ═══════════════════════════════ LOBBY ═══════════════════════════════ -->
+<div id="lobby" class="screen active">
+  <div class="lobby-bg"></div>
+
+  <div class="logo">
+    <div class="logo-title">SHIT<span>HEAD</span></div>
+    <div class="logo-sub">The card game. No mercy.</div>
+  </div>
+
+  <div class="lobby-card">
+    <h2>Join a Game</h2>
+    <div class="input-group">
+      <label>Your Name</label>
+      <input type="text" placeholder="Enter your name...">
+    </div>
+    <div class="input-group">
+      <label>Room Code</label>
+      <input type="text" placeholder="e.g. K47X" style="letter-spacing:0.2em;text-transform:uppercase;">
+    </div>
+    <button class="btn-primary">Join Room</button>
+
+    <div class="divider">or</div>
+
+    <button class="btn-secondary">Create New Room</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ WAITING ROOM ═══════════════════════════════ -->
+<div id="waiting" class="screen">
+  <div class="waiting-bg"></div>
+
+  <!-- Header row: title + room code -->
+  <div class="w-header">
+    <div class="w-title">Waiting Room</div>
+    <div class="room-code-block">
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <span style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);font-family:'DM Sans',sans-serif;">Room Code</span>
+        <span class="room-code-val">K47X</span>
+      </div>
+      <button class="copy-btn" id="copyBtn" onclick="copyCode()">Copy</button>
+    </div>
+  </div>
+
+  <!-- Main 2-col layout -->
+  <div class="w-body">
+
+    <!-- Players list -->
+    <div class="players-panel">
+      <div class="panel-head">
+        <span class="panel-head-title">Players</span>
+        <span class="player-count-badge">3 / 6</span>
+      </div>
+
+      <!-- Host -->
+      <div class="player-row">
+        <div class="p-avatar is-host">J</div>
+        <div class="p-info">
+          <div class="p-name is-you">Jake</div>
+          <div class="p-badges">
+            <span class="badge badge-host">Host</span>
+            <span class="badge badge-you">You</span>
+            <span class="badge badge-ready">Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player 2 -->
+      <div class="player-row">
+        <div class="p-avatar">M</div>
+        <div class="p-info">
+          <div class="p-name">Marco</div>
+          <div class="p-badges">
+            <span class="badge badge-ready">Ready</span>
+          </div>
+        </div>
+        <button class="kick-btn" onclick="kickPlayer(this)">Kick</button>
+      </div>
+
+      <!-- Player 3 -->
+      <div class="player-row">
+        <div class="p-avatar">S</div>
+        <div class="p-info">
+          <div class="p-name">Sara</div>
+          <div class="p-badges" style="opacity:0.4;">
+            <span class="badge" style="border-color:rgba(255,255,255,0.1);color:var(--muted);">Not ready</span>
+          </div>
+        </div>
+        <button class="kick-btn" onclick="kickPlayer(this)">Kick</button>
+      </div>
+
+      <!-- Empty slots -->
+      <div class="player-row">
+        <div class="p-avatar empty-slot">+</div>
+        <div class="p-info">
+          <div class="p-name empty-slot">Waiting for player...</div>
+        </div>
+      </div>
+
+      <div class="player-row">
+        <div class="p-avatar empty-slot">+</div>
+        <div class="p-info">
+          <div class="p-name empty-slot">Waiting for player...</div>
+        </div>
+      </div>
+
+      <div class="player-row">
+        <div class="p-avatar empty-slot">+</div>
+        <div class="p-info">
+          <div class="p-name empty-slot">Waiting for player...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: settings + start -->
+    <div class="right-col">
+
+      <!-- Game settings -->
+      <div class="settings-panel">
+        <div class="panel-head">
+          <span class="panel-head-title">Game Settings</span>
+          <span style="font-size:0.7rem;color:var(--muted);font-family:'Caveat',cursive;">Host only</span>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">Deck Mode</div>
+          <div class="deck-toggle">
+            <div class="deck-option selected" onclick="selectDeck(this)">
+              <div class="selected-dot"></div>
+              <span class="deck-option-name">Normal</span>
+              <span class="deck-option-desc">52 cards<br>2–6 players</span>
+            </div>
+            <div class="deck-option" onclick="selectDeck(this)">
+              <div class="selected-dot"></div>
+              <span class="deck-option-name">Double</span>
+              <span class="deck-option-desc">104 cards<br>4–8 players</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-note">Changes can only be made before the game starts.</div>
+      </div>
+
+      <!-- Start -->
+      <div class="start-panel">
+        <div class="start-status">2 of 3 players ready</div>
+        <button class="btn-start" onclick="triggerLoser()">Start Game</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ GAME TABLE ═══════════════════════════════ -->
+<div id="game" class="screen">
+
+  <!-- Top opponents -->
+  <div class="opponents-row">
+
+    <!-- Opponent 1 -->
+    <div class="opponent-area">
+      <div class="opponent-name-tag">Marco</div>
+      <div class="opp-facedown-row">
+        <div class="mini-card back"></div>
+        <div class="mini-card back"></div>
+        <div class="mini-card back"></div>
+      </div>
+      <div class="opp-faceup-row">
+        <div class="mini-card front">7</div>
+        <div class="mini-card front black">A</div>
+        <div class="mini-card front">Q</div>
+      </div>
+      <div class="opp-hand-count">5 cards</div>
+    </div>
+
+    <!-- Opponent 2 -->
+    <div class="opponent-area">
+      <div class="opponent-name-tag">Sara</div>
+      <div class="opp-facedown-row">
+        <div class="mini-card back"></div>
+        <div class="mini-card back"></div>
+        <div class="mini-card back"></div>
+      </div>
+      <div class="opp-faceup-row">
+        <div class="mini-card front black">4</div>
+        <div class="mini-card front">2</div>
+        <div class="mini-card front black">9</div>
+      </div>
+      <div class="opp-hand-count">2 cards</div>
+    </div>
+
+  </div>
+
+  <!-- Center action -->
+  <div class="center-table">
+    <div class="turn-banner">Your Turn</div>
+
+    <div class="center-row">
+      <!-- Draw deck -->
+      <div style="text-align:center;">
+        <div class="draw-deck">
+          <div class="card back"></div>
+          <div class="card back"></div>
+          <div class="card back"></div>
+        </div>
+        <div class="pile-label">Draw (18)</div>
+      </div>
+
+      <!-- Discard pile -->
+      <div style="text-align:center;">
+        <div class="discard-pile" id="discardPile">
+          <div class="card front black-suit">
+            <div><div class="card-rank">J</div><div class="card-suit">♠</div></div>
+            <div class="card-center-suit">♠</div>
+          </div>
+          <div class="card front">
+            <div><div class="card-rank">9</div><div class="card-suit">♥</div></div>
+            <div class="card-center-suit">♥</div>
+          </div>
+          <div class="card front special" id="topCard">
+            <div><div class="card-rank">10</div><div class="card-suit">♦</div></div>
+            <div class="card-center-suit">♦</div>
+          </div>
+        </div>
+        <div class="pile-label">Discard</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your area -->
+  <div class="your-area">
+    <div class="your-name-tag">You — Jake</div>
+
+    <!-- Face-down cards -->
+    <div class="your-facedown-row">
+      <div class="card back" style="width:56px;height:80px;border-radius:6px;"></div>
+      <div class="card back" style="width:56px;height:80px;border-radius:6px;"></div>
+      <div class="card back" style="width:56px;height:80px;border-radius:6px;"></div>
+    </div>
+
+    <!-- Face-up cards -->
+    <div class="your-faceup-row">
+      <div class="card front" style="width:56px;height:80px;border-radius:6px;font-size:0.9rem;">
+        <div><div style="font-size:1rem;font-family:'Bebas Neue',sans-serif;">5</div><div style="font-size:0.7rem;">♥</div></div>
+      </div>
+      <div class="card front black-suit" style="width:56px;height:80px;border-radius:6px;">
+        <div><div style="font-size:1rem;font-family:'Bebas Neue',sans-serif;">K</div><div style="font-size:0.7rem;">♣</div></div>
+      </div>
+      <div class="card front" style="width:56px;height:80px;border-radius:6px;">
+        <div><div style="font-size:1rem;font-family:'Bebas Neue',sans-serif;">2</div><div style="font-size:0.7rem;">♦</div></div>
+      </div>
+    </div>
+
+    <!-- Hand (fanned) -->
+    <div class="your-hand" id="playerHand" style="width: 340px;">
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── LOSER OVERLAY ─── -->
+<div class="loser-overlay" id="loserOverlay">
+  <div class="loser-crown">[ LOSER ]</div>
+  <div class="loser-title">SHITHEAD</div>
+  <div class="loser-name">Marco is the Shithead</div>
+  <button class="btn-primary" style="width:auto;padding:0.7rem 2.5rem;font-size:1.2rem;margin-top:1rem;" onclick="hideLoser()">Play Again</button>
+</div>
+<div class="card-rain" id="cardRain"></div>
+
+<script>
+  // ─── Copy room code ───
+  function copyCode() {
+    navigator.clipboard.writeText('K47X').catch(() => {});
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }
+
+  // ─── Kick player ───
+  function kickPlayer(btn) {
+    const row = btn.closest('.player-row');
+    row.style.transition = 'opacity 0.3s, transform 0.3s';
+    row.style.opacity = '0';
+    row.style.transform = 'translateX(20px)';
+    setTimeout(() => row.remove(), 300);
+  }
+
+  // ─── Deck toggle ───
+  function selectDeck(el) {
+    el.closest('.deck-toggle').querySelectorAll('.deck-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // ─── Screen switching ───
+  function showScreen(id, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
+  // ─── Build fanned hand ───
+  const hand = [
+    { rank: 'A', suit: '♠', red: false },
+    { rank: '7', suit: '♥', red: true  },
+    { rank: '3', suit: '♦', red: true  },
+    { rank: 'J', suit: '♣', red: false },
+    { rank: '2', suit: '♥', red: true  },
+    { rank: 'Q', suit: '♠', red: false },
+  ];
+
+  const handEl = document.getElementById('playerHand');
+  const total = hand.length;
+  const spread = 32;
+  const rotSpread = 6;
+  const centerX = (handEl.offsetWidth || 340) / 2 - 36;
+
+  hand.forEach((c, i) => {
+    const offset = (i - (total-1)/2);
+    const tx = centerX + offset * spread;
+    const rot = offset * rotSpread;
+    const ty = Math.abs(offset) * 3;
+
+    const el = document.createElement('div');
+    el.className = `card front hand-card${c.red ? '' : ' black-suit'}`;
+    el.style.cssText = `left:${tx}px; bottom:0; transform: rotate(${rot}deg) translateY(${ty}px); z-index:${i};`;
+    el.innerHTML = `<div><div class="card-rank">${c.rank}</div><div class="card-suit">${c.suit}</div></div><div class="card-center-suit">${c.suit}</div>`;
+    el.addEventListener('click', () => playCard(el, c));
+    handEl.appendChild(el);
+  });
+
+  // ─── Play card animation ───
+  function playCard(el, card) {
+    el.style.opacity = '0.3';
+    el.style.pointerEvents = 'none';
+    const newCard = document.createElement('div');
+    newCard.className = `card front card-slap${card.red ? '' : ' black-suit'}`;
+    newCard.style.cssText = 'position:absolute;';
+    newCard.innerHTML = `<div><div class="card-rank">${card.rank}</div><div class="card-suit">${card.suit}</div></div><div class="card-center-suit">${card.suit}</div>`;
+    const pile = document.getElementById('discardPile');
+    pile.appendChild(newCard);
+    setTimeout(() => el.remove(), 300);
+  }
+
+  // ─── Loser scene ───
+  function triggerLoser() {
+    showScreen('game');
+    setTimeout(() => {
+      document.getElementById('loserOverlay').classList.add('show');
+      spawnCardRain();
+    }, 800);
+  }
+
+  function hideLoser() {
+    document.getElementById('loserOverlay').classList.remove('show');
+    document.getElementById('cardRain').innerHTML = '';
+  }
+
+  function spawnCardRain() {
+    const rain = document.getElementById('cardRain');
+    const symbols = ['♠','♣','♥','♦','A','K','Q','J','10','7','2'];
+    for (let i = 0; i < 40; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'rain-card';
+        el.style.left = Math.random() * 100 + 'vw';
+        el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+        el.style.animationDelay = (Math.random() * 0.5) + 's';
+        el.style.fontSize = (0.8 + Math.random() * 1.2) + 'rem';
+        el.style.color = Math.random() > 0.5 ? 'rgba(230,57,70,0.5)' : 'rgba(255,255,255,0.3)';
+        el.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+        rain.appendChild(el);
+      }, i * 60);
+    }
+  }
+</script>
+</body>
+</html>

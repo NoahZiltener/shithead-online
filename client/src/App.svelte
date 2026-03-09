@@ -2,12 +2,10 @@
   import { onMount } from 'svelte'
   import { connection } from '$lib/ws.svelte.ts'
   import HomeView from './views/HomeView.svelte'
-  import CreateRoomView from './views/CreateRoomView.svelte'
-  import JoinView from './views/JoinView.svelte'
   import LobbyView from './views/LobbyView.svelte'
   import GameView from './views/GameView.svelte'
 
-  type Screen = 'home' | 'create' | 'join' | 'lobby' | 'game'
+  type Screen = 'home' | 'lobby' | 'game'
   let screen = $state<Screen>('home')
 
   onMount(() => { connection.tryRestoreSession() })
@@ -21,22 +19,43 @@
   })
 
   $effect(() => {
-    if (!connection.playerId && screen === 'lobby') screen = 'home'
+    if (!connection.playerId && screen !== 'home') screen = 'home'
   })
 </script>
+
+<nav class="nav-bar">
+  <div class="nav-logo">SHIT<span>HEAD</span></div>
+</nav>
 
 {#if screen === 'game'}
   <GameView />
 {:else if screen === 'lobby'}
   <LobbyView />
-{:else if screen === 'create'}
-  <CreateRoomView goBack={() => (screen = 'home')} />
-{:else if screen === 'join'}
-  <JoinView goBack={() => (screen = 'home')} />
 {:else}
-  <HomeView
-    notice={connection.error}
-    onCreate={() => { connection.error = null; screen = 'create' }}
-    onJoin={() => { connection.error = null; screen = 'join' }}
-  />
+  <HomeView notice={connection.error} />
 {/if}
+
+<style>
+  .nav-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background: rgba(14,14,24,0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    color: var(--cream);
+  }
+
+  .nav-logo span {
+    color: var(--neon);
+  }
+</style>
