@@ -1,6 +1,8 @@
-import type { ClientMessage, ServerMessage } from '$shared/types.ts'
+import type { ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
 
 type Player = { id: string; name: string }
+
+const SESSION_KEY = 'shithead_session'
 
 class GameConnection {
   status = $state<'disconnected' | 'connecting' | 'connected'>('disconnected')
@@ -8,6 +10,8 @@ class GameConnection {
   roomId = $state<string | null>(null)
   adminId = $state<string | null>(null)
   isAdmin = $derived(this.playerId !== null && this.playerId === this.adminId)
+  gameMode = $state<GameMode>('normal')
+  maxPlayers = $derived(this.gameMode === 'double_deck' ? 10 : 5)
   players = $state<Player[]>([])
   gameStarted = $state(false)
   error = $state<string | null>(null)
@@ -57,13 +61,17 @@ class GameConnection {
         this.playerId = msg.playerId
         this.roomId = msg.roomId
         this.adminId = msg.playerId
+        this.gameMode = msg.gameMode
         this.players = [{ id: msg.playerId, name: this.#myName }]
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ playerName: this.#myName, roomId: msg.roomId }))
         break
       case 'joined':
         this.playerId = msg.playerId
         this.roomId = msg.roomId
         this.adminId = msg.adminId
+        this.gameMode = msg.gameMode
         this.players = msg.players
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ playerName: this.#myName, roomId: msg.roomId }))
         break
       case 'player_joined':
         this.players = [...this.players, { id: msg.playerId, name: msg.playerName }]
@@ -74,11 +82,27 @@ class GameConnection {
       case 'admin_changed':
         this.adminId = msg.adminId
         break
+      case 'game_mode_changed':
+        this.gameMode = msg.mode
+        break
+      case 'kicked':
+        sessionStorage.removeItem(SESSION_KEY)
+        this.error = 'You were kicked from the room.'
+        this.#ws?.close()
+        this.#ws = null
+        this.playerId = null
+        this.roomId = null
+        this.adminId = null
+        this.players = []
+        this.gameMode = 'normal'
+        this.status = 'disconnected'
+        break
       case 'game_started':
         this.gameStarted = true
         break
       case 'error':
         this.error = msg.message
+        if (!this.playerId) sessionStorage.removeItem(SESSION_KEY)
         break
     }
   }
@@ -89,17 +113,41 @@ class GameConnection {
     }
   }
 
+  kickPlayer(playerId: string): void {
+    this.#send({ type: 'kick_player', playerId })
+  }
+
+  setGameMode(mode: GameMode): void {
+    this.#send({ type: 'set_game_mode', mode })
+  }
+
   startGame(): void {
     this.#send({ type: 'start_game' })
   }
 
+  tryRestoreSession(): boolean {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return false
+    try {
+      const { playerName, roomId } = JSON.parse(raw) as { playerName: string; roomId: string }
+      if (playerName && roomId) {
+        this.connect(playerName, roomId)
+        return true
+      }
+    } catch { /* ignore */ }
+    sessionStorage.removeItem(SESSION_KEY)
+    return false
+  }
+
   disconnect(): void {
+    sessionStorage.removeItem(SESSION_KEY)
     this.#ws?.close()
     this.#ws = null
     this.playerId = null
     this.roomId = null
     this.adminId = null
     this.players = []
+    this.gameMode = 'normal'
     this.gameStarted = false
     this.status = 'disconnected'
   }

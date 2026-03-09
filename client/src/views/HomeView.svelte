@@ -1,8 +1,19 @@
 <script lang="ts">
-  let { onCreate, onJoin }: { onCreate: () => void; onJoin: () => void } = $props()
+  let { onCreate, onJoin, notice = null }: {
+    onCreate: () => void
+    onJoin: () => void
+    notice?: string | null
+  } = $props()
 </script>
 
 <div class="card">
+  {#if notice}
+    <div class="notice">
+      <span class="notice-icon">⚠</span>
+      {notice}
+    </div>
+  {/if}
+
   <h1>Shithead</h1>
   <p class="subtitle">The card game, online.</p>
 
@@ -19,6 +30,24 @@
     border-radius: 12px;
     padding: 2.5rem;
     width: min(420px, 90vw);
+  }
+
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #2a1515;
+    border: 1px solid #5a1f1f;
+    border-radius: 8px;
+    color: #fca5a5;
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .notice-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
   }
 
   h1 {

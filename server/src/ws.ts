@@ -1,7 +1,7 @@
 import { upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
-import type { ClientMessage, ServerMessage } from '../../shared/src/types.ts'
-import { createRoom, getRoom, removePlayer, type Room, type RoomStore } from './rooms.ts'
+import type { ClientMessage, GameMode, ServerMessage } from '../../shared/src/types.ts'
+import { createRoom, getRoom, MAX_PLAYERS, removePlayer, type Room, type RoomStore } from './rooms.ts'
 
 function send(ws: WSContext, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg))
@@ -13,6 +13,8 @@ function broadcast(room: Room, msg: ServerMessage, excludeId?: string): void {
     if (id !== excludeId) player.ws.send(json)
   }
 }
+
+const VALID_MODES = new Set<GameMode>(['normal', 'double_deck'])
 
 export function createWsHandler(store: RoomStore) {
   return upgradeWebSocket(() => {
@@ -38,7 +40,7 @@ export function createWsHandler(store: RoomStore) {
           room = createRoom(store)
           room.adminId = playerId
           room.players.set(playerId, { id: playerId, name: msg.playerName, ws })
-          send(ws, { type: 'room_created', playerId, roomId: room.id })
+          send(ws, { type: 'room_created', playerId, roomId: room.id, gameMode: room.gameMode })
           return
         }
 
@@ -46,6 +48,10 @@ export function createWsHandler(store: RoomStore) {
           const target = getRoom(store, msg.roomId)
           if (!target) {
             send(ws, { type: 'error', message: `Room "${msg.roomId}" not found.` })
+            return
+          }
+          if (target.players.size >= MAX_PLAYERS[target.gameMode]) {
+            send(ws, { type: 'error', message: 'Room is full.' })
             return
           }
           if (room && playerId) {
@@ -56,13 +62,52 @@ export function createWsHandler(store: RoomStore) {
           room = target
           room.players.set(playerId, { id: playerId, name: msg.playerName, ws })
           const players = [...room.players.values()].map((p) => ({ id: p.id, name: p.name }))
-          send(ws, { type: 'joined', playerId, roomId: room.id, adminId: room.adminId, players })
+          send(ws, { type: 'joined', playerId, roomId: room.id, adminId: room.adminId, players, gameMode: room.gameMode })
           broadcast(room, { type: 'player_joined', playerId, playerName: msg.playerName }, playerId)
           return
         }
 
         if (!room || !playerId) {
           send(ws, { type: 'error', message: 'Not in a room. Send a "join" or "create_room" message first.' })
+          return
+        }
+
+        if (msg.type === 'set_game_mode') {
+          if (playerId !== room.adminId) {
+            send(ws, { type: 'error', message: 'Only the host can change the game mode.' })
+            return
+          }
+          if (!VALID_MODES.has(msg.mode)) {
+            send(ws, { type: 'error', message: 'Invalid game mode.' })
+            return
+          }
+          // If switching to normal and room is over the new limit, reject
+          if (room.players.size > MAX_PLAYERS[msg.mode]) {
+            send(ws, { type: 'error', message: `Cannot switch to this mode: too many players (max ${MAX_PLAYERS[msg.mode]}).` })
+            return
+          }
+          room.gameMode = msg.mode
+          broadcast(room, { type: 'game_mode_changed', mode: msg.mode })
+          return
+        }
+
+        if (msg.type === 'kick_player') {
+          if (playerId !== room.adminId) {
+            send(ws, { type: 'error', message: 'Only the host can kick players.' })
+            return
+          }
+          if (msg.playerId === playerId) {
+            send(ws, { type: 'error', message: 'You cannot kick yourself.' })
+            return
+          }
+          const target = room.players.get(msg.playerId)
+          if (!target) {
+            send(ws, { type: 'error', message: 'Player not found.' })
+            return
+          }
+          target.ws.send(JSON.stringify({ type: 'kicked' }))
+          removePlayer(store, room, msg.playerId)
+          broadcast(room, { type: 'player_left', playerId: msg.playerId })
           return
         }
 
@@ -78,6 +123,11 @@ export function createWsHandler(store: RoomStore) {
       },
 
       onClose() {
+        if (!room || !playerId || !room.players.has(playerId)) {
+          room = null
+          playerId = null
+          return
+        }
         if (room && playerId) {
           const wasAdmin = playerId === room.adminId
           broadcast(room, { type: 'player_left', playerId })

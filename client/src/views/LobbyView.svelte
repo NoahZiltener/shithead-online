@@ -9,6 +9,8 @@
     copied = true
     setTimeout(() => (copied = false), 2000)
   }
+
+  const MODE_LABELS = { normal: 'Normal', double_deck: 'Double Deck' }
 </script>
 
 <div class="card">
@@ -26,12 +28,36 @@
     <p class="hint">Share this code so others can join.</p>
   </section>
 
+  <section class="game-mode">
+    <p class="label">Game mode</p>
+    {#if connection.isAdmin}
+      <div class="mode-toggle">
+        <button
+          class:active={connection.gameMode === 'normal'}
+          onclick={() => connection.setGameMode('normal')}
+        >
+          Normal
+          <span class="max">max 5</span>
+        </button>
+        <button
+          class:active={connection.gameMode === 'double_deck'}
+          onclick={() => connection.setGameMode('double_deck')}
+        >
+          Double Deck
+          <span class="max">max 10</span>
+        </button>
+      </div>
+    {:else}
+      <p class="mode-display">{MODE_LABELS[connection.gameMode]}</p>
+    {/if}
+  </section>
+
   {#if connection.error}
     <p class="error">{connection.error}</p>
   {/if}
 
   <section class="players">
-    <p class="label">Players — {connection.players.length}</p>
+    <p class="label">Players — {connection.players.length}/{connection.maxPlayers}</p>
     <ul>
       {#each connection.players as player (player.id)}
         <li class:me={player.id === connection.playerId}>
@@ -44,6 +70,9 @@
               <span class="badge you">you</span>
             {/if}
           </span>
+          {#if connection.isAdmin && player.id !== connection.playerId}
+            <button class="kick" onclick={() => connection.kickPlayer(player.id)} title="Kick {player.name}">✕</button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -88,7 +117,7 @@
     border: 1px solid #2d3148;
     border-radius: 8px;
     padding: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
   }
 
   .code-row {
@@ -127,6 +156,58 @@
     margin: 0;
     font-size: 0.78rem;
     color: #475569;
+  }
+
+  .game-mode {
+    margin-bottom: 1.25rem;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .mode-toggle button {
+    flex: 1;
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 6px;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.6rem 0.5rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .mode-toggle button:hover {
+    border-color: #6366f1;
+    color: #e2e8f0;
+  }
+
+  .mode-toggle button.active {
+    border-color: #6366f1;
+    color: #e2e8f0;
+    background: #1a1b35;
+  }
+
+  .max {
+    font-size: 0.7rem;
+    color: #475569;
+  }
+
+  .mode-toggle button.active .max {
+    color: #6366f1;
+  }
+
+  .mode-display {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #94a3b8;
   }
 
   .error {
@@ -199,6 +280,24 @@
   .badge.you {
     background: #312e81;
     color: #a5b4fc;
+  }
+
+  .kick {
+    background: none;
+    border: none;
+    color: #475569;
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.15rem 0.3rem;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+
+  .kick:hover {
+    background: #3b1a1a;
+    color: #f87171;
   }
 
   .start {

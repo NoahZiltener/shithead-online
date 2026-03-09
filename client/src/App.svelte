@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { connection } from '$lib/ws.svelte.ts'
   import HomeView from './views/HomeView.svelte'
   import CreateRoomView from './views/CreateRoomView.svelte'
@@ -8,6 +9,8 @@
 
   type Screen = 'home' | 'create' | 'join' | 'lobby' | 'game'
   let screen = $state<Screen>('home')
+
+  onMount(() => { connection.tryRestoreSession() })
 
   $effect(() => {
     if (connection.playerId) screen = 'lobby'
@@ -31,5 +34,9 @@
 {:else if screen === 'join'}
   <JoinView goBack={() => (screen = 'home')} />
 {:else}
-  <HomeView onCreate={() => (screen = 'create')} onJoin={() => (screen = 'join')} />
+  <HomeView
+    notice={connection.error}
+    onCreate={() => { connection.error = null; screen = 'create' }}
+    onJoin={() => { connection.error = null; screen = 'join' }}
+  />
 {/if}

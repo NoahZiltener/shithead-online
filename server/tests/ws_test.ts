@@ -175,3 +175,51 @@ Deno.test('WS: admin transfer on host disconnect', async () => {
     bob.close()
   })
 })
+
+Deno.test('WS: host can kick a player', async () => {
+  await withServer(async (base) => {
+    const wsUrl = base.replace('http', 'ws') + '/ws'
+    const alice = new WSClient(wsUrl)
+    const bob = new WSClient(wsUrl)
+    await Promise.all([alice.waitForOpen(), bob.waitForOpen()])
+
+    alice.send({ type: 'create_room', playerName: 'Alice' })
+    const created = await alice.next() as { type: string; roomId: string }
+
+    bob.send({ type: 'join', roomId: created.roomId, playerName: 'Bob' })
+    const joined = await bob.next() as { type: string; playerId: string }
+    await alice.next() // player_joined for Bob
+
+    alice.send({ type: 'kick_player', playerId: joined.playerId })
+
+    const [aliceMsg, bobMsg] = await Promise.all([alice.next(), bob.next()]) as { type: string }[]
+    assertEquals(bobMsg.type, 'kicked')
+    assertEquals(aliceMsg.type, 'player_left')
+
+    alice.close()
+    bob.close()
+  })
+})
+
+Deno.test('WS: non-host cannot kick', async () => {
+  await withServer(async (base) => {
+    const wsUrl = base.replace('http', 'ws') + '/ws'
+    const alice = new WSClient(wsUrl)
+    const bob = new WSClient(wsUrl)
+    await Promise.all([alice.waitForOpen(), bob.waitForOpen()])
+
+    alice.send({ type: 'create_room', playerName: 'Alice' })
+    const created = await alice.next() as { type: string; playerId: string; roomId: string }
+
+    bob.send({ type: 'join', roomId: created.roomId, playerName: 'Bob' })
+    await bob.next()
+    await alice.next() // player_joined
+
+    bob.send({ type: 'kick_player', playerId: created.playerId })
+    const msg = await bob.next() as { type: string }
+    assertEquals(msg.type, 'error')
+
+    alice.close()
+    bob.close()
+  })
+})

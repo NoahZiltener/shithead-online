@@ -1,3 +1,7 @@
+import type { GameMode } from '../../shared/src/types.ts'
+
+export type { GameMode }
+
 export interface Sender {
   send(data: string): void
 }
@@ -12,6 +16,12 @@ export type Room = {
   id: string
   players: Map<string, PlayerConn>
   adminId: string
+  gameMode: GameMode
+}
+
+export const MAX_PLAYERS: Record<GameMode, number> = {
+  normal: 5,
+  double_deck: 10,
 }
 
 export type RoomStore = Map<string, Room>
@@ -28,7 +38,7 @@ function generateRoomCode(): string {
 export function createRoom(store: RoomStore): Room {
   let id: string
   do { id = generateRoomCode() } while (store.has(id))
-  const room: Room = { id, players: new Map(), adminId: '' }
+  const room: Room = { id, players: new Map(), adminId: '', gameMode: 'normal' }
   store.set(id, room)
   return room
 }
