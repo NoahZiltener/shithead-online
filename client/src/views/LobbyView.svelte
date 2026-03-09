@@ -112,7 +112,7 @@
               >
                 <div class="selected-dot"></div>
                 <span class="deck-option-name">Normal</span>
-                <span class="deck-option-desc">52 cards<br>2–6 players</span>
+                <span class="deck-option-desc">52 cards<br>2–5 players</span>
               </button>
               <button
                 class="deck-option"
@@ -121,7 +121,7 @@
               >
                 <div class="selected-dot"></div>
                 <span class="deck-option-name">Double Deck</span>
-                <span class="deck-option-desc">104 cards<br>4–8 players</span>
+                <span class="deck-option-desc">104 cards<br>2–10 players</span>
               </button>
             </div>
           {:else}
