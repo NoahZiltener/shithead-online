@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { connection } from '$lib/ws.svelte.ts'
+  import { connection } from '$lib/ws.svelte'
 
   let copied = $state(false)
 

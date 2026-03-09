@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { connection } from '$lib/ws.svelte.ts'
+  import { connection } from '$lib/ws.svelte'
   import HomeView from './views/HomeView.svelte'
   import LobbyView from './views/LobbyView.svelte'
   import GameView from './views/GameView.svelte'

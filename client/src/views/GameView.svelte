@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { connection } from '$lib/ws.svelte.ts'
+  import { connection } from '$lib/ws.svelte'
   import { onMount } from 'svelte'
 
   // Demo hand cards — will be replaced when game state is wired up
