@@ -1,6 +1,8 @@
 {
   "deno.enablePaths": [
-    "./"
+    "server/",
+    "shared/"
   ],
-  "editor.inlayHints.enabled": "off"
+  "editor.inlayHints.enabled": "off",
+  "deno.enable": true
 }

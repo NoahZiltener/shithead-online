@@ -1,4 +1,12 @@
+import { configureSync, getConsoleSink } from '@logtape/logtape'
 import { createApp } from '../src/app.ts'
+
+configureSync({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ['shithead-online'], sinks: ['console'], lowestLevel: 'debug' },
+  ],
+})
 
 export class WSClient {
   #ws: WebSocket

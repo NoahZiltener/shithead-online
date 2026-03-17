@@ -1,5 +1,13 @@
 import { assertEquals, assertNotEquals } from '@std/assert'
-import { createRoom, createRoomStore, getRoom, removePlayer, type Sender } from '../src/rooms.ts'
+import { configureSync, getConsoleSink } from '@logtape/logtape'
+import { createRoom, createRoomStore, getRoom, removePlayer, type Sender } from '../../src/rooms.ts'
+
+configureSync({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ['shithead-online'], sinks: ['console'], lowestLevel: 'debug' },
+  ],
+})
 
 const mockSender: Sender = { send: () => {} }
 

@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { WSClient, withServer } from './helpers.ts'
+import { WSClient, withServer } from '../helpers.ts'
 
 Deno.test('WS: create_room returns room_created', async () => {
   await withServer(async (base) => {
@@ -216,6 +216,55 @@ Deno.test('WS: non-host cannot kick', async () => {
     await alice.next() // player_joined
 
     bob.send({ type: 'kick_player', playerId: created.playerId })
+    const msg = await bob.next() as { type: string }
+    assertEquals(msg.type, 'error')
+
+    alice.close()
+    bob.close()
+  })
+})
+
+Deno.test('WS: set_game_mode changes mode and broadcasts to all players', async () => {
+  await withServer(async (base) => {
+    const wsUrl = base.replace('http', 'ws') + '/ws'
+    const alice = new WSClient(wsUrl)
+    const bob = new WSClient(wsUrl)
+    await Promise.all([alice.waitForOpen(), bob.waitForOpen()])
+
+    alice.send({ type: 'create_room', playerName: 'Alice' })
+    const created = await alice.next() as { type: string; roomId: string }
+
+    bob.send({ type: 'join', roomId: created.roomId, playerName: 'Bob' })
+    await bob.next() // joined
+    await alice.next() // player_joined
+
+    alice.send({ type: 'set_game_mode', mode: 'double_deck' })
+    const [aliceMsg, bobMsg] = await Promise.all([alice.next(), bob.next()]) as { type: string; mode?: string }[]
+    assertEquals(aliceMsg.type, 'game_mode_changed')
+    assertEquals(aliceMsg.mode, 'double_deck')
+    assertEquals(bobMsg.type, 'game_mode_changed')
+    assertEquals(bobMsg.mode, 'double_deck')
+
+    alice.close()
+    bob.close()
+  })
+})
+
+Deno.test('WS: non-host cannot change game mode', async () => {
+  await withServer(async (base) => {
+    const wsUrl = base.replace('http', 'ws') + '/ws'
+    const alice = new WSClient(wsUrl)
+    const bob = new WSClient(wsUrl)
+    await Promise.all([alice.waitForOpen(), bob.waitForOpen()])
+
+    alice.send({ type: 'create_room', playerName: 'Alice' })
+    const created = await alice.next() as { type: string; roomId: string }
+
+    bob.send({ type: 'join', roomId: created.roomId, playerName: 'Bob' })
+    await bob.next() // joined
+    await alice.next() // player_joined
+
+    bob.send({ type: 'set_game_mode', mode: 'double_deck' })
     const msg = await bob.next() as { type: string }
     assertEquals(msg.type, 'error')
 

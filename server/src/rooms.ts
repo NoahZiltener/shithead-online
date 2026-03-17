@@ -1,4 +1,8 @@
+import { getLogger } from '@logtape/logtape'
 import type { GameMode } from '../../shared/src/types.ts'
+import type { ServerGameState } from './game.ts'
+
+const logger = getLogger(['shithead-online', 'rooms'])
 
 export type { GameMode }
 
@@ -17,6 +21,7 @@ export type Room = {
   players: Map<string, PlayerConn>
   adminId: string
   gameMode: GameMode
+  gameState: ServerGameState | null
 }
 
 export const MAX_PLAYERS: Record<GameMode, number> = {
@@ -38,8 +43,9 @@ function generateRoomCode(): string {
 export function createRoom(store: RoomStore): Room {
   let id: string
   do { id = generateRoomCode() } while (store.has(id))
-  const room: Room = { id, players: new Map(), adminId: '', gameMode: 'normal' }
+  const room: Room = { id, players: new Map(), adminId: '', gameMode: 'normal', gameState: null }
   store.set(id, room)
+  logger.debug('Room {roomId} created', { roomId: id })
   return room
 }
 
@@ -51,5 +57,6 @@ export function removePlayer(store: RoomStore, room: Room, playerId: string): vo
   room.players.delete(playerId)
   if (room.players.size === 0) {
     store.delete(room.id)
+    logger.debug('Room {roomId} removed (empty)', { roomId: room.id })
   }
 }
