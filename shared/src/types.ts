@@ -61,6 +61,8 @@ export type ClientMessage =
   | { type: 'set_face_up'; cardIds: string[] }
   | { type: 'play_card'; cardIds: string[] }
   | { type: 'pick_up_pile' }
+  | { type: 'peek_face_down'; fdId: string }
+  | { type: 'return_to_lobby' }
 
 // Server → Client messages
 export type ServerMessage =
@@ -74,4 +76,6 @@ export type ServerMessage =
   | { type: 'game_started'; state: ClientGameState }
   | { type: 'game_state'; state: ClientGameState }
   | { type: 'face_up_set'; playerId: string; allReady: boolean }
+  | { type: 'face_down_revealed'; fdId: string; card: Card }
+  | { type: 'lobby_reset' }
   | { type: 'error'; message: string }

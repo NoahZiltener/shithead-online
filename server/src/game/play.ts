@@ -246,6 +246,11 @@ export function pickUpPile(state: ServerGameState, playerId: string): ServerGame
   const source = getCardSource(player, drawPileEmpty)
   if (source === 'faceDown') { logger.warn('Player {playerId} tried to pick up pile during face-down phase', { playerId }); throw new Error('In face-down phase: play a card instead') }
 
+  // Must pick up only when no valid play exists
+  const activeCards = source === 'hand' ? player.hand : player.faceUp
+  const hasPlayableCard = activeCards.some((c) => canPlayCard(c, state.effectiveTop, state.constraint))
+  if (hasPlayableCard) { logger.warn('Player {playerId} tried to pick up pile but has playable cards', { playerId }); throw new Error('You must play a card when you have a valid play') }
+
   const newPlayer = { ...player, hand: [...player.hand, ...state.discardPile] }
   const newPlayers = [...state.players]
   newPlayers[playerIdx] = newPlayer

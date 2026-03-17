@@ -220,6 +220,47 @@ export function createWsHandler(store: RoomStore) {
           broadcastGameState(room)
           return
         }
+
+        if (msg.type === 'peek_face_down') {
+          if (room.gameState.phase !== 'playing') {
+            send(ws, { type: 'error', message: 'Not in playing phase.' })
+            return
+          }
+          const gameState = room.gameState
+          const player = gameState.players[gameState.currentPlayerIndex]
+          if (player.id !== playerId) {
+            send(ws, { type: 'error', message: 'Not your turn.' })
+            return
+          }
+          const drawPileEmpty = gameState.drawPile.length === 0
+          const isInFaceDownPhase = player.hand.length === 0 && !(drawPileEmpty && player.faceUp.length > 0)
+          if (!isInFaceDownPhase) {
+            send(ws, { type: 'error', message: 'Not in face-down phase.' })
+            return
+          }
+          const fdMatch = msg.fdId.match(/^fd_(\d+)$/)
+          if (!fdMatch) {
+            send(ws, { type: 'error', message: 'Invalid face-down card ID.' })
+            return
+          }
+          const fdIdx = parseInt(fdMatch[1], 10)
+          if (fdIdx < 0 || fdIdx >= player.faceDown.length) {
+            send(ws, { type: 'error', message: 'Invalid face-down card index.' })
+            return
+          }
+          send(ws, { type: 'face_down_revealed', fdId: msg.fdId, card: player.faceDown[fdIdx] })
+          return
+        }
+
+        if (msg.type === 'return_to_lobby') {
+          if (!room.gameState || room.gameState.phase !== 'finished') {
+            send(ws, { type: 'error', message: 'Can only return to lobby after the game has finished.' })
+            return
+          }
+          room.gameState = null
+          broadcast(room, { type: 'lobby_reset' })
+          return
+        }
       },
 
       onClose() {
@@ -230,15 +271,57 @@ export function createWsHandler(store: RoomStore) {
         }
         if (room && playerId) {
           const wasAdmin = playerId === room.adminId
+          const disconnectedId = playerId
           logger.info('Player {playerId} disconnected from room {roomId}', { playerId, roomId: room.id })
           broadcast(room, { type: 'player_left', playerId })
-          removePlayer(store, room, playerId)
+          removePlayer(store, room, disconnectedId)
 
           if (wasAdmin && room.players.size > 0) {
             const newAdmin = room.players.values().next().value!
             room.adminId = newAdmin.id
             logger.info('Admin role transferred to {newAdminId} in room {roomId}', { newAdminId: newAdmin.id, roomId: room.id })
             broadcast(room, { type: 'admin_changed', adminId: newAdmin.id })
+          }
+
+          // Handle mid-game disconnect
+          if (room.gameState && room.gameState.phase === 'playing') {
+            const gamePlayerIdx = room.gameState.players.findIndex((p) => p.id === disconnectedId)
+            if (gamePlayerIdx !== -1) {
+              const disconnectedPlayer = room.gameState.players[gamePlayerIdx]
+              const newFinished = [...room.gameState.finishedPlayerIds]
+              if (!newFinished.includes(disconnectedId)) newFinished.push(disconnectedId)
+              const newPlayers = room.gameState.players.map((p) =>
+                p.id === disconnectedId ? { ...p, isFinished: true } : p
+              )
+              const activePlayers = newPlayers.filter((p) => !p.isFinished)
+
+              if (activePlayers.length <= 1) {
+                const hadCards =
+                  disconnectedPlayer.hand.length > 0 ||
+                  disconnectedPlayer.faceUp.length > 0 ||
+                  disconnectedPlayer.faceDown.length > 0
+                room.gameState = {
+                  ...room.gameState,
+                  players: newPlayers,
+                  finishedPlayerIds: newFinished,
+                  phase: 'finished',
+                  loser: hadCards ? disconnectedId : activePlayers[0]?.id,
+                }
+                logger.info('Game ended in room {roomId} due to player {playerId} disconnecting', { roomId: room.id, playerId: disconnectedId })
+              } else {
+                // Continue with remaining players; advance turn if it was disconnected player's turn
+                let currentIdx = room.gameState.currentPlayerIndex
+                if (currentIdx === gamePlayerIdx) {
+                  const n = newPlayers.length
+                  let next = (currentIdx + 1) % n
+                  while (newPlayers[next].isFinished) next = (next + 1) % n
+                  currentIdx = next
+                }
+                room.gameState = { ...room.gameState, players: newPlayers, finishedPlayerIds: newFinished, currentPlayerIndex: currentIdx }
+              }
+
+              if (room.players.size > 0) broadcastGameState(room)
+            }
           }
 
           room = null

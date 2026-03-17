@@ -11,15 +11,13 @@
   onMount(() => { connection.tryRestoreSession() })
 
   $effect(() => {
-    if (connection.playerId) screen = 'lobby'
-  })
-
-  $effect(() => {
-    if (connection.gameStarted) screen = 'game'
-  })
-
-  $effect(() => {
-    if (!connection.playerId && screen !== 'home') screen = 'home'
+    if (!connection.playerId) {
+      screen = 'home'
+    } else if (connection.gameStarted) {
+      screen = 'game'
+    } else {
+      screen = 'lobby'
+    }
   })
 </script>
 

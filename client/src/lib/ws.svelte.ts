@@ -1,4 +1,4 @@
-import type { ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
+import type { Card, ClientGameState, ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
 
 type Player = { id: string; name: string }
 
@@ -14,7 +14,10 @@ class GameConnection {
   maxPlayers = $derived(this.gameMode === 'double_deck' ? 10 : 5)
   players = $state<Player[]>([])
   gameStarted = $state(false)
+  gameState = $state<ClientGameState | null>(null)
   error = $state<string | null>(null)
+  peekedFdId = $state<string | null>(null)
+  peekedCard = $state<Card | null>(null)
 
   #ws: WebSocket | null = null
   #myName = ''
@@ -99,6 +102,23 @@ class GameConnection {
         break
       case 'game_started':
         this.gameStarted = true
+        this.gameState = msg.state
+        break
+      case 'game_state':
+        this.gameState = msg.state
+        break
+      case 'face_up_set':
+        // game_state is broadcast alongside this — no extra state needed
+        break
+      case 'face_down_revealed':
+        this.peekedFdId = msg.fdId
+        this.peekedCard = msg.card
+        break
+      case 'lobby_reset':
+        this.gameStarted = false
+        this.gameState = null
+        this.peekedFdId = null
+        this.peekedCard = null
         break
       case 'error':
         this.error = msg.message
@@ -125,6 +145,31 @@ class GameConnection {
     this.#send({ type: 'start_game' })
   }
 
+  setFaceUp(cardIds: string[]): void {
+    this.#send({ type: 'set_face_up', cardIds })
+  }
+
+  playCard(cardIds: string[]): void {
+    this.#send({ type: 'play_card', cardIds })
+  }
+
+  pickUpPile(): void {
+    this.#send({ type: 'pick_up_pile' })
+  }
+
+  peekFaceDown(fdId: string): void {
+    this.#send({ type: 'peek_face_down', fdId })
+  }
+
+  returnToLobby(): void {
+    this.#send({ type: 'return_to_lobby' })
+  }
+
+  clearPeek(): void {
+    this.peekedFdId = null
+    this.peekedCard = null
+  }
+
   tryRestoreSession(): boolean {
     const raw = sessionStorage.getItem(SESSION_KEY)
     if (!raw) return false
@@ -149,6 +194,9 @@ class GameConnection {
     this.players = []
     this.gameMode = 'normal'
     this.gameStarted = false
+    this.gameState = null
+    this.peekedFdId = null
+    this.peekedCard = null
     this.status = 'disconnected'
   }
 }
