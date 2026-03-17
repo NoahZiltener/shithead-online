@@ -1,6 +1,6 @@
 import { getLogger } from '@logtape/logtape'
 import type { GameMode } from '../../shared/src/types.ts'
-import type { ServerGameState } from './game.ts'
+import type { ServerGameState } from './game/index.ts'
 
 const logger = getLogger(['shithead-online', 'rooms'])
 

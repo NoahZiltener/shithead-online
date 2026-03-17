@@ -13,7 +13,7 @@ import {
   shuffle,
   type ServerGameState,
   type ServerPlayerState,
-} from '../../src/game.ts'
+} from '../../src/game/index.ts'
 import type { Card, PileConstraint, Rank } from '../../../shared/src/types.ts'
 
 configureSync({

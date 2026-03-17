@@ -2,7 +2,7 @@ import { upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
 import { getLogger } from '@logtape/logtape'
 import type { ClientMessage, GameMode, ServerMessage } from '../../shared/src/types.ts'
-import { dealCards, getClientState, pickUpPile, playCards, setFaceUp } from './game.ts'
+import { dealCards, getClientState, pickUpPile, playCards, setFaceUp } from './game/index.ts'
 import { createRoom, getRoom, MAX_PLAYERS, removePlayer, type Room, type RoomStore } from './rooms.ts'
 
 const logger = getLogger(['shithead-online', 'ws'])
