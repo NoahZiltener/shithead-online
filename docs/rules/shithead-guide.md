@@ -1,4 +1,4 @@
-# 💩 Shithead — Complete Game Guide
+# Shithead — Complete Game Guide
 
 ## Overview
 
@@ -80,7 +80,7 @@ These cards have unique effects that override normal play:
 
 - The **first player to play all their cards** (hand + face-up + face-down) is finished and out of the game.
 - Play continues until only **one player** remains with cards.
-- That player is the **Shithead** 💩 and loses.
+- That player is the **Shithead** and loses.
 
 ---
 
@@ -125,7 +125,7 @@ Special cards:
   10 = burn the discard pile, play again
   Four of a kind on pile = burn pile, play again
 
-Loser:        Last player with cards = Shithead 💩
+Loser:        Last player with cards = Shithead
 ```
 
 ---
