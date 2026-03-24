@@ -1,6 +1,6 @@
 export type { PlayResult, ServerGameState, ServerPlayerState } from './types.ts'
 export { createDeck, dealCards, shuffle } from './deck.ts'
-export { canPlayCard, canPlayCards } from './rules.ts'
+export { canPlayCard, canPlayCards, checkFourOfAKind } from './rules.ts'
 export { setFaceUp } from './setup.ts'
 export { pickUpPile, playCards } from './play.ts'
 export { getClientState } from './view.ts'
