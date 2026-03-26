@@ -27,6 +27,15 @@ function broadcastGameState(room: Room): void {
   }
 }
 
+function transferAdmin(room: Room, leavingId: string): void {
+  if (room.adminId !== leavingId) return
+  const next = [...room.players.keys()].find((id) => id !== leavingId)
+  if (!next) return
+  room.adminId = next
+  broadcast(room, { type: 'admin_changed', adminId: next })
+  logger.info('Admin transferred to {adminId} in room {roomId}', { adminId: next, roomId: room.id })
+}
+
 const VALID_MODES = new Set<GameMode>(['normal', 'double_deck'])
 
 export function createWsHandler(store: RoomStore) {
@@ -47,6 +56,7 @@ export function createWsHandler(store: RoomStore) {
 
         if (msg.type === 'create_room') {
           if (room && playerId) {
+            transferAdmin(room, playerId)
             broadcast(room, { type: 'player_left', playerId })
             removePlayer(store, room, playerId)
           }
@@ -72,6 +82,7 @@ export function createWsHandler(store: RoomStore) {
             return
           }
           if (room && playerId) {
+            transferAdmin(room, playerId)
             broadcast(room, { type: 'player_left', playerId })
             removePlayer(store, room, playerId)
           }
@@ -144,6 +155,11 @@ export function createWsHandler(store: RoomStore) {
           let result
           try { result = playCards(room.gameState, playerId, msg.cardIds) } catch (e) { send(ws, { type: 'error', message: (e as Error).message }); return }
           room.gameState = result.state
+          if (result.gameOver) {
+            const loserName = room.players.get(result.state.loser ?? '')?.name ?? 'Unknown'
+            broadcast(room, { type: 'game_over', loserId: result.state.loser, loserName })
+            sendGameSummary(room, loserName).catch(() => {})
+          }
           broadcastGameState(room)
           return
         }
@@ -153,6 +169,11 @@ export function createWsHandler(store: RoomStore) {
           let result
           try { result = throwInCards(room.gameState, playerId, msg.cardIds) } catch (e) { send(ws, { type: 'error', message: (e as Error).message }); return }
           room.gameState = result.state
+          if (result.gameOver) {
+            const loserName = room.players.get(result.state.loser ?? '')?.name ?? 'Unknown'
+            broadcast(room, { type: 'game_over', loserId: result.state.loser, loserName })
+            sendGameSummary(room, loserName).catch(() => {})
+          }
           broadcastGameState(room)
           return
         }
@@ -195,7 +216,37 @@ export function createWsHandler(store: RoomStore) {
           return
         }
         logger.info('Player {playerId} disconnected from room {roomId}', { playerId, roomId: room.id })
-        broadcast(room, { type: 'player_left', playerId })
+
+        // Handle mid-game disconnect: mark player as finished so the game can continue
+        if (room.gameState && room.gameState.phase === 'playing') {
+          const playerIdx = room.gameState.players.findIndex((p) => p.id === playerId)
+          if (playerIdx !== -1) {
+            const updatedPlayers = [...room.gameState.players]
+            updatedPlayers[playerIdx] = { ...updatedPlayers[playerIdx], isFinished: true }
+            const activePlayers = updatedPlayers.filter((p) => !p.isFinished)
+
+            // Advance turn if disconnected player was current player
+            let currentPlayerIndex = room.gameState.currentPlayerIndex
+            if (room.gameState.players[currentPlayerIndex]?.id === playerId) {
+              currentPlayerIndex = (currentPlayerIndex + 1) % updatedPlayers.length
+              while (updatedPlayers[currentPlayerIndex].isFinished && activePlayers.length > 0) {
+                currentPlayerIndex = (currentPlayerIndex + 1) % updatedPlayers.length
+              }
+            }
+
+            room.gameState = { ...room.gameState, players: updatedPlayers, currentPlayerIndex }
+
+            if (activePlayers.length <= 1) {
+              const loser = activePlayers[0]
+              room.gameState = { ...room.gameState, phase: 'finished', loser: loser?.id }
+              const loserName = room.players.get(loser?.id ?? '')?.name ?? 'Unknown'
+              broadcast(room, { type: 'game_over', loserId: loser?.id, loserName }, playerId)
+            }
+          }
+        }
+
+        transferAdmin(room, playerId)
+        broadcast(room, { type: 'player_left', playerId }, playerId)
         removePlayer(store, room, playerId)
         room = null
         playerId = null
