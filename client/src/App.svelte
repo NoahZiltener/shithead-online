@@ -4,6 +4,7 @@
   import HomeView from './views/HomeView.svelte'
   import LobbyView from './views/LobbyView.svelte'
   import GameView from './views/GameView.svelte'
+  import FeedbackButton from '$lib/FeedbackButton.svelte'
 
   type Screen = 'home' | 'lobby' | 'game'
   let screen = $state<Screen>('home')
@@ -32,6 +33,8 @@
 {:else}
   <HomeView notice={connection.error} />
 {/if}
+
+<FeedbackButton {screen} />
 
 <style>
   .nav-bar {
