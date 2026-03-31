@@ -108,15 +108,29 @@
     selectedIds = new Set()
   }
 
-  // Face-down: first click peeks, second click plays
+  // Double-click: immediately play all cards of this rank in the active pile
+  function playNow(card: Card) {
+    if (!isMyTurn || !self) return
+    if (!cardIsPlayable(card)) return
+    const pool = activePile === 'hand' ? self.hand : self.faceUp
+    const ids = pool.filter(c => c.rank === card.rank).map(c => c.id)
+    connection.playCard(ids)
+    selectedIds = new Set()
+  }
+
+  // Face-down: first click peeks, second click (or dblclick) plays.
+  // Once a card is peeked, clicking another card is blocked.
   function playFaceDown(id: string) {
     if (!isMyTurn || activePile !== 'faceDown' || phase !== 'playing') return
-    if (connection.peekedFdId === id) {
-      connection.playCard([id])
-      connection.clearPeek()
-    } else {
-      connection.peekFaceDown(id)
+    if (connection.peekedFdId !== null) {
+      // A card is already peeked — only allow playing that same card
+      if (connection.peekedFdId === id) {
+        connection.playCard([id])
+        connection.clearPeek()
+      }
+      return
     }
+    connection.peekFaceDown(id)
   }
 
   // ── Discard pile display (top 3) ──────────────────────────────────────────
@@ -307,11 +321,12 @@
         {@const peekedCard = isPeeked ? connection.peekedCard : null}
         <button
           class="card sm"
-          class:back={!isPeeked}
+          class:fd-back={!isPeeked}
           class:front={isPeeked}
           class:black-suit={isPeeked && peekedCard && !isRed(peekedCard.suit)}
           class:special={isPeeked && peekedCard && isSpecial(peekedCard.rank)}
-          class:playable={isMyTurn && activePile === 'faceDown' && phase === 'playing'}
+          class:playable={isMyTurn && activePile === 'faceDown' && phase === 'playing' && (connection.peekedFdId === null || isPeeked)}
+          class:locked={!isPeeked && connection.peekedFdId !== null}
           class:peeked={isPeeked}
           aria-label={isPeeked ? 'Play this card' : 'Flip face-down card'}
           onclick={() => playFaceDown(fdId)}
@@ -336,6 +351,7 @@
           class:playable={isMyTurn && activePile === 'faceUp' && phase === 'playing' && cardIsPlayable(card)}
           class:unplayable={isMyTurn && activePile === 'faceUp' && phase === 'playing' && !cardIsPlayable(card)}
           onclick={() => { if (phase === 'playing' && activePile === 'faceUp') togglePlay(card) }}
+          ondblclick={() => { if (phase === 'playing' && activePile === 'faceUp') playNow(card) }}
         >
           <div><div class="card-rank sm-rank">{rankLabel(card.rank)}</div><div class="card-suit sm-suit">{suitSymbol(card.suit)}</div></div>
         </button>
@@ -358,6 +374,7 @@
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
             style="left:{tx}px; transform: rotate({rot}deg) translateY({ty}px); z-index:{i};"
             onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (activePile === 'hand') togglePlay(card) }}
+            ondblclick={() => { if (phase === 'playing' && activePile === 'hand') playNow(card) }}
           >
             <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
             <div class="card-bg-suit">{suitSymbol(card.suit)}</div>
@@ -586,6 +603,18 @@
     box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
   }
 
+  /* Face-down cards — burgundy/maroon so they stand out from hand backs */
+  .card.fd-back {
+    background: linear-gradient(135deg, #4a0e1a 0%, #7b1f30 100%);
+    border: 1px solid rgba(255,255,255,0.15);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px,
+      transparent 2px, transparent 10px
+    );
+    box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+  }
+
   .card.front {
     background: var(--cream);
     border: 1px solid rgba(0,0,0,0.08);
@@ -653,6 +682,13 @@
     opacity: 0.35;
     cursor: not-allowed;
     filter: grayscale(60%);
+  }
+
+  /* Locked face-down cards (another fd card is already peeked) */
+  .card.locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(40%);
   }
 
   /* Peeked face-down card */
