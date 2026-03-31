@@ -544,14 +544,14 @@
 
   .mini-rank { font-size: 1rem; line-height: 1; }
   .mini-suit { font-size: 0.7rem; line-height: 1; }
-  .mini-fd-q { font-size: 1.3rem; color: rgba(255,255,255,0.3); }
+  .mini-fd-q { font-size: 1.3rem; color: rgba(220,50,50,0.9); text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
 
   .mini-card.back {
-    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, #7a0000 0%, #c0152a 100%);
+    border: 1px solid rgba(255,100,100,0.3);
     background-image: repeating-linear-gradient(
       45deg,
-      rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px,
+      rgba(255,80,80,0.18) 0px, rgba(255,80,80,0.18) 2px,
       transparent 2px, transparent 8px
     );
     box-shadow: 2px 3px 8px rgba(0,0,0,0.4);
@@ -593,23 +593,27 @@
   }
 
   .card.back {
-    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
-    border: 1px solid rgba(255,255,255,0.15);
-    background-image: repeating-linear-gradient(
-      45deg,
-      rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px,
-      transparent 2px, transparent 10px
-    );
-    box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+    background:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,200,150,0.18) 0px, rgba(255,200,150,0.18) 2px,
+        transparent 2px, transparent 8px
+      ),
+      linear-gradient(135deg, #7a0000 0%, #b01020 100%);
+    border: 2px solid rgba(220,100,70,0.5);
+    box-shadow:
+      2px 4px 14px rgba(0,0,0,0.6),
+      inset 0 0 0 3px rgba(100,0,0,0.6),
+      inset 0 0 0 5px rgba(255,160,100,0.2);
   }
 
-  /* Face-down cards — burgundy/maroon so they stand out from hand backs */
+  /* Face-down cards — red with visible red stripe pattern */
   .card.fd-back {
-    background: linear-gradient(135deg, #4a0e1a 0%, #7b1f30 100%);
-    border: 1px solid rgba(255,255,255,0.15);
+    background: linear-gradient(135deg, #7a0000 0%, #c0152a 100%);
+    border: 1px solid rgba(255,100,100,0.3);
     background-image: repeating-linear-gradient(
       45deg,
-      rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px,
+      rgba(255,80,80,0.18) 0px, rgba(255,80,80,0.18) 2px,
       transparent 2px, transparent 10px
     );
     box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
@@ -706,7 +710,8 @@
     justify-content: center;
     font-family: 'Bebas Neue', sans-serif;
     font-size: 2.2rem;
-    color: rgba(255,255,255,0.25);
+    color: rgba(220,50,50,0.9);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
   /* Effective top indicator */
