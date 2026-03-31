@@ -12,20 +12,25 @@ This guide covers building the Docker images on your dev machine and running the
 
 ## 1. Build and push images
 
-Run these from the **repo root** on your dev machine. Replace `yourname` with your Docker Hub username.
+Run these from the **repo root** on your dev machine.
+
+First, create a multi-arch builder (one-time setup):
 
 ```bash
-# Build both images
-docker build -t yourname/shithead-server:latest -f server/Dockerfile .
-docker build -t yourname/shithead-client:latest -f client/Dockerfile .
-
-# Push to Docker Hub
-docker login
-docker push yourname/shithead-server:latest
-docker push yourname/shithead-client:latest
+docker buildx create --use --name multiarch
 ```
 
-> **ARM-based NAS** (check under DSM → Info Center → CPU): add `--platform linux/amd64,linux/arm64` and use `docker buildx build` instead of `docker build`.
+Then build and push both images for `amd64` and `arm64` in one step. Docker Hub will automatically serve the correct architecture to whatever machine pulls the image:
+
+```bash
+docker login
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t noahziltener5/shithead-server:latest -f server/Dockerfile . --push
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t noahziltener5/shithead-client:latest -f client/Dockerfile . --push
+```
 
 ---
 
@@ -126,10 +131,11 @@ To make it accessible from outside your home network, set up a port forward on y
 On your dev machine, rebuild and push:
 
 ```bash
-docker build -t yourname/shithead-server:latest -f server/Dockerfile .
-docker build -t yourname/shithead-client:latest -f client/Dockerfile .
-docker push yourname/shithead-server:latest
-docker push yourname/shithead-client:latest
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t noahziltener5/shithead-server:latest -f server/Dockerfile . --push
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t noahziltener5/shithead-client:latest -f client/Dockerfile . --push
 ```
 
 Then on the NAS (SSH or Container Manager → Project → Action → Pull and restart):
