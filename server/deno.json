@@ -5,7 +5,7 @@
     "@std/assert": "jsr:@std/assert@^1.0.19"
   },
   "tasks": {
-    "start": "deno run --allow-net --allow-env --env=../.env main.ts",
+    "start": "deno run --allow-net --allow-env main.ts",
     "dev": "deno run --allow-net --allow-env --env=../.env --watch main.ts",
     "test": "deno test --allow-net --allow-env tests/"
   },
