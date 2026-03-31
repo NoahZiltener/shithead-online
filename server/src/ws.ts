@@ -4,6 +4,7 @@ import { getLogger } from '@logtape/logtape'
 import type { ClientMessage, GameMode, ServerMessage } from '../../shared/src/types.ts'
 import { dealCards, getClientState, pickUpPile, playCards, setFaceUp } from './game/index.ts'
 import { createRoom, getRoom, MAX_PLAYERS, removePlayer, type Room, type RoomStore } from './rooms.ts'
+import { sendGameSummary } from './discord.ts'
 
 const logger = getLogger(['shithead-online', 'ws'])
 
@@ -144,6 +145,7 @@ export function createWsHandler(store: RoomStore) {
 
           const players = [...room.players.values()].map((p) => ({ id: p.id, name: p.name }))
           room.gameState = dealCards(players, room.gameMode === 'double_deck')
+          room.gameStartedAt = Date.now()
           logger.info('Game started in room {roomId} with {playerCount} players', { roomId: room.id, playerCount: players.length })
 
           // Send each player their personalised initial state
@@ -201,6 +203,9 @@ export function createWsHandler(store: RoomStore) {
 
           room.gameState = result.state
           broadcastGameState(room)
+          if (result.gameOver) {
+            sendGameSummary(room.id, room.gameMode, result.state, room.gameStartedAt ?? Date.now())
+          }
           return
         }
 
@@ -308,6 +313,7 @@ export function createWsHandler(store: RoomStore) {
                   loser: hadCards ? disconnectedId : activePlayers[0]?.id,
                 }
                 logger.info('Game ended in room {roomId} due to player {playerId} disconnecting', { roomId: room.id, playerId: disconnectedId })
+                sendGameSummary(room.id, room.gameMode, room.gameState, room.gameStartedAt ?? Date.now())
               } else {
                 // Continue with remaining players; advance turn if it was disconnected player's turn
                 let currentIdx = room.gameState.currentPlayerIndex

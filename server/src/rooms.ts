@@ -22,6 +22,7 @@ export type Room = {
   adminId: string
   gameMode: GameMode
   gameState: ServerGameState | null
+  gameStartedAt?: number
 }
 
 export const MAX_PLAYERS: Record<GameMode, number> = {

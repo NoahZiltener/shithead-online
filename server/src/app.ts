@@ -2,8 +2,7 @@ import { Hono } from 'hono'
 import { createRoomStore, type RoomStore } from './rooms.ts'
 import { createWsHandler } from './ws.ts'
 
-const DISCORD_WEBHOOK_URL = Deno.env.get('DISCORD_WEBHOOK_URL') ??
-  'https://discord.com/api/webhooks/1488479251240980562/4Eyg60rKKe1UJtFR7SEsoy0LisPnvYkLVu9e9hCtJQ3jePSiZIgm4ofL6-hyakTlwiiE'
+const DISCORD_WEBHOOK_URL = Deno.env.get('DISCORD_FEEDBACK_WEBHOOK_URL') ?? ''
 
 export function createApp(store: RoomStore = createRoomStore()): Hono {
   const app = new Hono()
@@ -36,6 +35,10 @@ export function createApp(store: RoomStore = createRoomStore()): Hono {
         color: 0xf72585,
         fields,
       }],
+    }
+
+    if (!DISCORD_WEBHOOK_URL) {
+      return c.json({ error: 'Feedback is not configured.' }, 503)
     }
 
     const res = await fetch(DISCORD_WEBHOOK_URL, {
