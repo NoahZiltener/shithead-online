@@ -2,7 +2,7 @@ import { upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
 import { getLogger } from '@logtape/logtape'
 import type { ClientMessage, GameMode, ServerMessage } from '../../shared/src/types.ts'
-import { dealCards, getClientState, pickUpPile, playCards, setFaceUp } from './game/index.ts'
+import { dealCards, getClientState, pickUpPile, playCards, setFaceUp, throwInCards } from './game/index.ts'
 import { createRoom, getRoom, MAX_PLAYERS, removePlayer, type Room, type RoomStore } from './rooms.ts'
 import { sendGameSummary } from './discord.ts'
 
@@ -196,6 +196,28 @@ export function createWsHandler(store: RoomStore) {
           let result
           try {
             result = playCards(room.gameState, playerId, msg.cardIds)
+          } catch (e) {
+            send(ws, { type: 'error', message: (e as Error).message })
+            return
+          }
+
+          room.gameState = result.state
+          broadcastGameState(room)
+          if (result.gameOver) {
+            sendGameSummary(room.id, room.gameMode, result.state, room.gameStartedAt ?? Date.now())
+          }
+          return
+        }
+
+        if (msg.type === 'throw_in_card') {
+          if (room.gameState.phase !== 'playing') {
+            send(ws, { type: 'error', message: 'Game is not in playing phase.' })
+            return
+          }
+
+          let result
+          try {
+            result = throwInCards(room.gameState, playerId, msg.cardIds)
           } catch (e) {
             send(ws, { type: 'error', message: (e as Error).message })
             return

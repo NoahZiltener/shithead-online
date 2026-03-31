@@ -153,6 +153,10 @@ class GameConnection {
     this.#send({ type: 'play_card', cardIds })
   }
 
+  throwIn(cardIds: string[]): void {
+    this.#send({ type: 'throw_in_card', cardIds })
+  }
+
   pickUpPile(): void {
     this.#send({ type: 'pick_up_pile' })
   }

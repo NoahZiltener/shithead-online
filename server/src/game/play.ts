@@ -234,6 +234,97 @@ export function playCards(state: ServerGameState, playerId: string, cardIds: str
   return { state: newState, burned, faceDownCard, faceDownUnplayable: false, playerFinished: isFinished, gameOver: false }
 }
 
+export function throwInCards(state: ServerGameState, playerId: string, cardIds: string[]): PlayResult {
+  if (state.phase !== 'playing') { logger.warn('throwInCards called outside playing phase by {playerId}', { playerId }); throw new Error('Game not in playing phase') }
+  if (cardIds.length === 0) { logger.warn('Player {playerId} sent empty card list for throw-in', { playerId }); throw new Error('Must play at least one card') }
+
+  const playerIdx = state.players.findIndex((p) => p.id === playerId)
+  if (playerIdx === -1) { logger.warn('Throw-in by unknown player {playerId}', { playerId }); throw new Error('Player not in game') }
+  const player = state.players[playerIdx]
+  if (player.isFinished) { logger.warn('Finished player {playerId} tried to throw in', { playerId }); throw new Error('You have already finished') }
+  if (playerIdx === state.currentPlayerIndex) { logger.warn('Current player {playerId} tried to use throw-in (use play_card instead)', { playerId }); throw new Error('It is your turn — use play_card instead') }
+  if (player.hand.length === 0) { logger.warn('Player {playerId} has no hand cards to throw in', { playerId }); throw new Error('No cards in hand to throw in') }
+
+  // Validate cards from hand
+  const cardMap = new Map(player.hand.map((c) => [c.id, c]))
+  const cards = cardIds.map((id) => {
+    const c = cardMap.get(id)
+    if (!c) { logger.warn('Player {playerId} threw in unknown card {cardId}', { playerId, cardId: id }); throw new Error(`Card "${id}" not found in hand`) }
+    return c
+  })
+  const rank = cards[0].rank
+  if (!cards.every((c) => c.rank === rank)) throw new Error('All thrown-in cards must be the same rank')
+
+  // Cards must match the top effective rank of the discard pile
+  if (state.discardPile.length === 0) throw new Error('Discard pile is empty')
+  let topRank: number | null = null
+  for (let i = state.discardPile.length - 1; i >= 0; i--) {
+    if (state.discardPile[i].rank !== 3) { topRank = state.discardPile[i].rank; break }
+  }
+  if (topRank === null) throw new Error('Cannot determine top rank of pile')
+  if (rank !== topRank) throw new Error('Thrown-in cards must match the top rank of the pile')
+
+  // After adding, must result in four-of-a-kind
+  const newDiscard = [...state.discardPile, ...cards]
+  if (!checkFourOfAKind(newDiscard)) throw new Error('Throwing in these cards would not complete four of a kind')
+
+  // Remove cards from hand
+  const idSet = new Set(cardIds)
+  let newPlayer: ServerPlayerState = { ...player, hand: player.hand.filter((c) => !idSet.has(c.id)) }
+
+  // Draw up to 3
+  let newDrawPile = state.drawPile
+  const drawn = drawToRefill(newPlayer, newDrawPile)
+  newPlayer = drawn.player
+  newDrawPile = drawn.drawPile
+
+  // Check if player finished
+  const isFinished = newPlayer.hand.length === 0 && newPlayer.faceUp.length === 0 && newPlayer.faceDown.length === 0
+  newPlayer = { ...newPlayer, isFinished }
+
+  const newPlayers = [...state.players]
+  newPlayers[playerIdx] = newPlayer
+
+  const newFinished = [...state.finishedPlayerIds]
+  if (isFinished && !newFinished.includes(playerId)) newFinished.push(playerId)
+
+  // Pile always burns on throw-in (four-of-a-kind guaranteed)
+  let newState: ServerGameState = {
+    ...state,
+    players: newPlayers,
+    drawPile: newDrawPile,
+    discardPile: [],
+    effectiveTop: null,
+    constraint: 'none',
+    finishedPlayerIds: newFinished,
+    currentPlayerIndex: playerIdx, // thrower gets the next turn
+  }
+
+  // Check game over
+  const activePlayers = newPlayers.filter((p) => !p.isFinished)
+  if (activePlayers.length <= 1) {
+    const loserPlayer = activePlayers.length === 1 ? activePlayers[0] : undefined
+    logger.info('Game over — loser: {loserName} ({loserId})', { loserName: loserPlayer?.name ?? 'none', loserId: loserPlayer?.id ?? 'none' })
+    newState = { ...newState, phase: 'finished', loser: loserPlayer?.id }
+    return { state: newState, burned: true, faceDownUnplayable: false, playerFinished: isFinished, gameOver: true }
+  }
+
+  // If thrower finished, advance to the next active player; otherwise they play again
+  if (isFinished) {
+    let next = (playerIdx + 1) % newPlayers.length
+    while (newPlayers[next].isFinished) next = (next + 1) % newPlayers.length
+    newState = { ...newState, currentPlayerIndex: next }
+  }
+
+  const nextPlayer = newState.players[newState.currentPlayerIndex]
+  logger.info(
+    'Throw-in: {playerName} threw {count}x{rank} [four-of-a-kind burn] → next: {nextPlayerName}',
+    { playerName: player.name, count: cards.length, rank, nextPlayerName: isFinished ? '(finished)' : nextPlayer.name },
+  )
+  if (isFinished) logger.info('Player {playerName} ({playerId}) has finished the game', { playerName: player.name, playerId })
+  return { state: newState, burned: true, faceDownUnplayable: false, playerFinished: isFinished, gameOver: false }
+}
+
 export function pickUpPile(state: ServerGameState, playerId: string): ServerGameState {
   if (state.phase !== 'playing') { logger.warn('pickUpPile called outside playing phase by {playerId}', { playerId }); throw new Error('Game not in playing phase') }
   const playerIdx = state.currentPlayerIndex

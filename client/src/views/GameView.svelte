@@ -133,6 +133,40 @@
     connection.peekFaceDown(id)
   }
 
+  // ── Throw-in detection ────────────────────────────────────────────────────
+  // When it's not your turn, detect if you can complete four-of-a-kind by throwing in hand cards
+
+  const throwInRank = $derived.by((): Rank | null => {
+    if (isMyTurn || phase !== 'playing' || !gs || !self || self.isFinished) return null
+    if (!self.hand.length || !gs.discardPile.length) return null
+
+    const pile = gs.discardPile
+    let topRank: Rank | null = null
+    for (let i = pile.length - 1; i >= 0; i--) {
+      if (pile[i].rank !== 3) { topRank = pile[i].rank; break }
+    }
+    if (!topRank) return null
+
+    let pileCount = 0
+    for (let i = pile.length - 1; i >= 0; i--) {
+      if (pile[i].rank === 3) continue
+      if (pile[i].rank === topRank) pileCount++
+      else break
+    }
+
+    const myCount = self.hand.filter(c => c.rank === topRank).length
+    return myCount > 0 && pileCount + myCount >= 4 ? topRank : null
+  })
+
+  const throwInIds = $derived(
+    throwInRank !== null ? self?.hand.filter(c => c.rank === throwInRank).map(c => c.id) ?? [] : []
+  )
+
+  function doThrowIn() {
+    if (throwInIds.length === 0) return
+    connection.throwIn(throwInIds)
+  }
+
   // ── Discard pile display (top 3) ──────────────────────────────────────────
   const discardTop3 = $derived(gs?.discardPile.slice(-3) ?? [])
 
@@ -384,9 +418,10 @@
             class:selected={selectedIds.has(card.id)}
             class:selectable={phase === 'setup' ? !self.hasSetFaceUp : (isMyTurn && activePile === 'hand' && cardIsPlayable(card))}
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
+            class:throw-in={throwInIds.includes(card.id)}
             style="left:{tx}px; transform: rotate({rot}deg) translateY({ty}px); z-index:{i};"
-            onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (activePile === 'hand') togglePlay(card) }}
-            ondblclick={() => { if (phase === 'playing' && activePile === 'hand') playNow(card) }}
+            onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
+            ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
           >
             <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
             <div class="card-bg-suit">{suitSymbol(card.suit)}</div>
@@ -408,6 +443,10 @@
           onclick={confirmSetup}
         >
           Confirm face-up ({selectedIds.size}/3)
+        </button>
+      {:else if phase === 'playing' && throwInRank !== null}
+        <button class="btn-throw-in" onclick={doThrowIn}>
+          Throw In! ({throwInIds.length}x{rankLabel(throwInRank)})
         </button>
       {:else if phase === 'playing' && isMyTurn}
         {#if selectedIds.size > 0}
@@ -877,6 +916,48 @@
     transform: translateY(-16px) rotate(0deg) !important;
     box-shadow: 4px 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(247,37,133,0.25) !important;
     z-index: 10 !important;
+  }
+
+  .hand-card.throw-in {
+    cursor: pointer;
+    box-shadow: 0 0 14px 3px rgba(255, 165, 0, 0.7), 4px 8px 24px rgba(0,0,0,0.5) !important;
+    outline: 2px solid rgba(255, 165, 0, 0.8);
+    animation: throw-in-pulse 1s ease-in-out infinite alternate;
+  }
+
+  .hand-card.throw-in:hover {
+    transform: translateY(-16px) rotate(0deg) !important;
+    box-shadow: 0 0 24px 6px rgba(255, 165, 0, 0.9), 4px 8px 24px rgba(0,0,0,0.7) !important;
+    z-index: 10 !important;
+  }
+
+  @keyframes throw-in-pulse {
+    from { box-shadow: 0 0 10px 2px rgba(255, 165, 0, 0.5), 4px 8px 24px rgba(0,0,0,0.5); }
+    to   { box-shadow: 0 0 20px 6px rgba(255, 165, 0, 0.85), 4px 8px 24px rgba(0,0,0,0.5); }
+  }
+
+  .btn-throw-in {
+    background: linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,80,0,0.2));
+    border: 1px solid rgba(255,140,0,0.7);
+    border-radius: 8px;
+    color: #ffa040;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 1.4rem;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    animation: throw-in-btn-pulse 1s ease-in-out infinite alternate;
+  }
+
+  .btn-throw-in:hover {
+    background: linear-gradient(135deg, rgba(255,140,0,0.35), rgba(255,80,0,0.35));
+    box-shadow: 0 0 16px rgba(255,140,0,0.4);
+  }
+
+  @keyframes throw-in-btn-pulse {
+    from { box-shadow: 0 0 6px rgba(255,140,0,0.3); }
+    to   { box-shadow: 0 0 14px rgba(255,140,0,0.7); }
   }
 
   .empty-hand-hint {

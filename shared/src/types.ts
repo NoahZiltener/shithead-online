@@ -60,6 +60,7 @@ export type ClientMessage =
   | { type: 'start_game' }
   | { type: 'set_face_up'; cardIds: string[] }
   | { type: 'play_card'; cardIds: string[] }
+  | { type: 'throw_in_card'; cardIds: string[] }
   | { type: 'pick_up_pile' }
   | { type: 'peek_face_down'; fdId: string }
   | { type: 'return_to_lobby' }
