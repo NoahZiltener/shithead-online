@@ -230,6 +230,7 @@
   // ── Hand fan layout ───────────────────────────────────────────────────────
   let handEl = $state<HTMLDivElement | undefined>()
   let containerWidth = $state(340)
+  let spreadMode = $state(false)
 
   $effect(() => {
     const el = handEl
@@ -242,8 +243,12 @@
     return () => obs.disconnect()
   })
 
+  const sortedHandCards = $derived(
+    [...(self?.hand ?? [])].sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.suit.localeCompare(b.suit))
+  )
+
   const fanCards = $derived.by(() => {
-    const cards = [...(self?.hand ?? [])].sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.suit.localeCompare(b.suit))
+    const cards = sortedHandCards
     const total = cards.length
     if (total === 0) return []
     const spread   = Math.min(40, (containerWidth - 72) / Math.max(total - 1, 1))
@@ -409,8 +414,14 @@
 
     <!-- Fanned hand -->
     {#if self.hand.length > 0}
-      <div class="your-hand" bind:this={handEl}>
-        {#each fanCards as { card, tx, rot, ty }, i}
+      <div class="hand-header">
+        <button class="btn-spread" onclick={() => spreadMode = !spreadMode} title={spreadMode ? 'Fan view' : 'Spread view'}>
+          {spreadMode ? '🂠' : '⊞'}
+        </button>
+      </div>
+      <div class="your-hand" class:spread={spreadMode} bind:this={handEl}>
+        {#each (spreadMode ? sortedHandCards : fanCards.map(f => f.card)) as card, i}
+          {@const fanData = spreadMode ? null : fanCards[i]}
           <button
             class="hand-card card front"
             class:black-suit={!isRed(card.suit)}
@@ -419,7 +430,7 @@
             class:selectable={phase === 'setup' ? !self.hasSetFaceUp : (isMyTurn && activePile === 'hand' && cardIsPlayable(card))}
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
             class:throw-in={throwInIds.includes(card.id)}
-            style="left:{tx}px; transform: rotate({rot}deg) translateY({ty}px); z-index:{i};"
+            style={fanData ? `left:${fanData.tx}px; transform: rotate(${fanData.rot}deg) translateY(${fanData.ty}px); z-index:${i};` : `z-index:${i};`}
             onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
             ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
           >
@@ -893,6 +904,31 @@
   }
 
   /* Fanned hand */
+  .hand-header {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: -0.25rem;
+  }
+
+  .btn-spread {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 5px;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+    padding: 0.15rem 0.45rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .btn-spread:hover {
+    background: rgba(255,255,255,0.13);
+    color: rgba(255,255,255,0.85);
+  }
+
   .your-hand {
     display: flex;
     position: relative;
@@ -900,6 +936,24 @@
     width: 100%;
     max-width: 500px;
     margin-bottom: 0.25rem;
+  }
+
+  /* Spread mode: scrollable row */
+  .your-hand.spread {
+    height: auto;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 8px 4px 16px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+
+  .your-hand.spread .hand-card {
+    position: relative;
+    bottom: auto;
+    flex-shrink: 0;
   }
 
   .hand-card {
@@ -912,10 +966,17 @@
     cursor: pointer;
   }
 
+  /* Hover lift for all hand cards (including when not your turn, for browsing) */
+  .hand-card:hover {
+    transform: translateY(-12px) rotate(0deg) !important;
+    box-shadow: 4px 8px 24px rgba(0,0,0,0.7) !important;
+    z-index: 100 !important;
+  }
+
   .hand-card.selectable:hover {
     transform: translateY(-16px) rotate(0deg) !important;
     box-shadow: 4px 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(247,37,133,0.25) !important;
-    z-index: 10 !important;
+    z-index: 100 !important;
   }
 
   .hand-card.throw-in {
