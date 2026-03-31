@@ -136,6 +136,15 @@
   // ── Discard pile display (top 3) ──────────────────────────────────────────
   const discardTop3 = $derived(gs?.discardPile.slice(-3) ?? [])
 
+  const topCardCount = $derived((() => {
+    const pile = gs?.discardPile
+    if (!pile || pile.length === 0) return 0
+    const topRank = pile[pile.length - 1].rank
+    let count = 0
+    for (let i = pile.length - 1; i >= 0 && pile[i].rank === topRank; i--) count++
+    return count
+  })())
+
   const DISCARD_OFFSETS = [
     'transform: rotate(-4deg) translate(-3px, 2px);',
     'transform: rotate(2deg) translate(1px, -1px);',
@@ -295,6 +304,9 @@
                 >
                   <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
                   <div class="card-bg-suit">{suitSymbol(card.suit)}</div>
+                  {#if i === discardTop3.length - 1 && topCardCount > 1}
+                    <div class="top-card-count">{topCardCount}</div>
+                  {/if}
                 </div>
               {/each}
             {/if}
@@ -672,6 +684,24 @@
     font-size: 1.8rem;
     opacity: 0.15;
     transform: rotate(180deg);
+  }
+
+  .top-card-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e53;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: bold;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
   }
 
   /* Small cards */
