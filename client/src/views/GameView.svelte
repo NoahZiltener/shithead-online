@@ -24,6 +24,19 @@
                              'faceDown' as const
   )
 
+  // ── Playability (mirrors server rules.ts) ────────────────────────────────
+  function cardIsPlayable(card: Card): boolean {
+    if (phase !== 'playing' || !gs) return true
+    const { rank } = card
+    if (rank === 2 || rank === 3 || rank === 10) return true
+    const { constraint, effectiveTop } = gs
+    if (constraint === 'after2') return rank !== 7
+    if (constraint === 'after7') return rank <= 7
+    if (effectiveTop === null) return true
+    if (rank === 7) return effectiveTop.rank >= 7
+    return rank >= effectiveTop.rank
+  }
+
   // ── Selection ─────────────────────────────────────────────────────────────
   let selectedIds = $state(new Set<string>())
 
@@ -33,13 +46,34 @@
     selectedIds = new Set()
   })
 
+  const activeCards = $derived(
+    !self ? [] :
+    activePile === 'hand' ? self.hand :
+    activePile === 'faceUp' ? self.faceUp :
+    []
+  )
+
+  const canPickUp = $derived(
+    isMyTurn &&
+    gs !== null &&
+    gs.discardPile.length > 0 &&
+    activePile !== 'faceDown' &&
+    !activeCards.some(c => cardIsPlayable(c))
+  )
+
   function togglePlay(card: Card) {
     if (!isMyTurn || !self) return
+    if (!cardIsPlayable(card)) return
     const next = new Set(selectedIds)
     if (next.has(card.id)) {
       next.delete(card.id)
     } else {
-      next.add(card.id)
+      const pool = activePile === 'hand' ? self.hand : self.faceUp
+      const firstSelected = next.size > 0 ? pool.find(c => next.has(c.id)) : null
+      if (firstSelected && firstSelected.rank !== card.rank) {
+        next.clear()
+      }
+      pool.filter(c => c.rank === card.rank).forEach(c => next.add(c.id))
     }
     selectedIds = next
   }
@@ -52,6 +86,7 @@
 
   function playNow(card: Card) {
     if (!isMyTurn || !self) return
+    if (!cardIsPlayable(card)) return
     const pool = activePile === 'hand' ? self.hand : self.faceUp
     const ids = pool.filter(c => c.rank === card.rank).map(c => c.id)
     connection.playCard(ids)
@@ -223,6 +258,8 @@
           class:black-suit={!isRed(card.suit)}
           class:special={isSpecial(card.rank)}
           class:selected={selectedIds.has(card.id)}
+          class:playable={isMyTurn && activePile === 'faceUp' && phase === 'playing' && cardIsPlayable(card)}
+          class:unplayable={isMyTurn && activePile === 'faceUp' && phase === 'playing' && !cardIsPlayable(card)}
           onclick={() => { if (phase === 'playing' && activePile === 'faceUp') togglePlay(card) }}
           ondblclick={() => { if (phase === 'playing' && activePile === 'faceUp') playNow(card) }}
         >
@@ -243,6 +280,8 @@
             class:black-suit={!isRed(card.suit)}
             class:special={isSpecial(card.rank)}
             class:selected={selectedIds.has(card.id)}
+            class:selectable={isMyTurn && activePile === 'hand' && cardIsPlayable(card)}
+            class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
             style="z-index:{i};"
             onclick={() => { if (isMyTurn && activePile === 'hand') togglePlay(card) }}
             ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card) }}
@@ -260,10 +299,17 @@
 
     <!-- Action buttons -->
     <div class="action-row">
-      {#if phase === 'playing' && isMyTurn && selectedIds.size > 0}
-        <button class="btn-action" onclick={playSelected}>
-          Play {selectedIds.size} card{selectedIds.size !== 1 ? 's' : ''}
-        </button>
+      {#if phase === 'playing' && isMyTurn}
+        {#if selectedIds.size > 0}
+          <button class="btn-action" onclick={playSelected}>
+            Play {selectedIds.size} card{selectedIds.size !== 1 ? 's' : ''}
+          </button>
+        {/if}
+        {#if canPickUp}
+          <button class="btn-pickup" onclick={() => connection.pickUpPile()}>
+            Pick up pile ({gs.discardPile.length})
+          </button>
+        {/if}
       {/if}
     </div>
 
@@ -696,6 +742,38 @@
   .btn-action:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+
+  /* ── Playability states ── */
+  .card.playable {
+    outline: 1px solid rgba(100,220,100,0.4);
+    cursor: pointer;
+  }
+
+  .card.playable:hover {
+    outline: 2px solid rgba(100,220,100,0.7);
+    transform: translateY(-4px);
+  }
+
+  .card.unplayable { opacity: 0.4; cursor: not-allowed; }
+  .card.selectable { cursor: pointer; }
+
+  .btn-pickup {
+    background: rgba(255,190,11,0.15);
+    border: 1px solid rgba(255,190,11,0.4);
+    border-radius: 8px;
+    color: var(--gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    padding: 0.55rem 1.4rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+  }
+
+  .btn-pickup:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255,190,11,0.2);
   }
 
   /* ── Error notice ── */
