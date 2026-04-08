@@ -44,6 +44,7 @@
     const _id    = gs?.currentPlayerId
     const _phase = gs?.phase
     selectedIds = new Set()
+    if (!isMyTurn) connection.clearPeek()
   })
 
   const activeCards = $derived(
@@ -76,6 +77,21 @@
   function confirmSetup() {
     connection.setFaceUp([...selectedIds])
     selectedIds = new Set()
+  }
+
+  // Face-down: first click peeks, second click (or dblclick) plays.
+  // Once a card is peeked, clicking another card is blocked.
+  function playFaceDown(id: string) {
+    if (!isMyTurn || activePile !== 'faceDown' || phase !== 'playing') return
+    if (connection.peekedFdId !== null) {
+      // A card is already peeked — only allow playing that same card
+      if (connection.peekedFdId === id) {
+        connection.playCard([id])
+        connection.clearPeek()
+      }
+      return
+    }
+    connection.peekFaceDown(id)
   }
 
   function togglePlay(card: Card) {
@@ -261,9 +277,26 @@
     <!-- Face-down row -->
     <div class="your-facedown-row">
       {#each self.faceDownIds as fdId}
-        <div class="card sm fd-back">
-          <div class="fd-question">?</div>
-        </div>
+        {@const isPeeked = connection.peekedFdId === fdId}
+        {@const peekedCard = isPeeked ? connection.peekedCard : null}
+        <button
+          class="card sm"
+          class:fd-back={!isPeeked}
+          class:front={isPeeked}
+          class:black-suit={isPeeked && peekedCard && !isRed(peekedCard.suit)}
+          class:special={isPeeked && peekedCard && isSpecial(peekedCard.rank)}
+          class:playable={isMyTurn && activePile === 'faceDown' && phase === 'playing' && (connection.peekedFdId === null || isPeeked)}
+          class:locked={!isPeeked && connection.peekedFdId !== null}
+          class:peeked={isPeeked}
+          aria-label={isPeeked ? 'Play this card' : 'Flip face-down card'}
+          onclick={() => playFaceDown(fdId)}
+        >
+          {#if isPeeked && peekedCard}
+            <div><div class="card-rank sm-rank">{rankLabel(peekedCard.rank)}</div><div class="card-suit sm-suit">{suitSymbol(peekedCard.suit)}</div></div>
+          {:else}
+            <div class="fd-question">?</div>
+          {/if}
+        </button>
       {/each}
     </div>
 
@@ -782,6 +815,12 @@
 
   .card.unplayable { opacity: 0.4; cursor: not-allowed; }
   .card.selectable { cursor: pointer; }
+  .card.locked { opacity: 0.3; cursor: not-allowed; }
+  .card.peeked {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+    transform: translateY(-8px);
+  }
 
   .btn-pickup {
     background: rgba(255,190,11,0.15);
