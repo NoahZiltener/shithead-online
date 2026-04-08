@@ -61,6 +61,23 @@
     !activeCards.some(c => cardIsPlayable(c))
   )
 
+  // Setup phase: pick exactly 3 cards from hand for face-up
+  function toggleSetup(id: string) {
+    if (!self || self.hasSetFaceUp) return
+    const next = new Set(selectedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else if (next.size < 3) {
+      next.add(id)
+    }
+    selectedIds = next
+  }
+
+  function confirmSetup() {
+    connection.setFaceUp([...selectedIds])
+    selectedIds = new Set()
+  }
+
   function togglePlay(card: Card) {
     if (!isMyTurn || !self) return
     if (!cardIsPlayable(card)) return
@@ -280,10 +297,10 @@
             class:black-suit={!isRed(card.suit)}
             class:special={isSpecial(card.rank)}
             class:selected={selectedIds.has(card.id)}
-            class:selectable={isMyTurn && activePile === 'hand' && cardIsPlayable(card)}
+            class:selectable={phase === 'setup' ? !self.hasSetFaceUp : (isMyTurn && activePile === 'hand' && cardIsPlayable(card))}
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
             style="z-index:{i};"
-            onclick={() => { if (isMyTurn && activePile === 'hand') togglePlay(card) }}
+            onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card) }}
             ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card) }}
           >
             <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
@@ -299,7 +316,15 @@
 
     <!-- Action buttons -->
     <div class="action-row">
-      {#if phase === 'playing' && isMyTurn}
+      {#if phase === 'setup' && !self.hasSetFaceUp}
+        <button
+          class="btn-action"
+          disabled={selectedIds.size !== 3}
+          onclick={confirmSetup}
+        >
+          Confirm face-up ({selectedIds.size}/3)
+        </button>
+      {:else if phase === 'playing' && isMyTurn}
         {#if selectedIds.size > 0}
           <button class="btn-action" onclick={playSelected}>
             Play {selectedIds.size} card{selectedIds.size !== 1 ? 's' : ''}
