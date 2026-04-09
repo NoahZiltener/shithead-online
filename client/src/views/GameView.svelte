@@ -17,6 +17,7 @@
   const phase   = $derived(gs?.phase ?? 'setup')
   const isMyTurn = $derived(gs?.currentPlayerId === connection.playerId)
 
+  // Which pile is active for the current player
   const activePile = $derived(
     !self            ? 'hand'     as const :
     self.hand.length  > 0 ? 'hand'     as const :
@@ -40,6 +41,7 @@
   // ── Selection ─────────────────────────────────────────────────────────────
   let selectedIds = $state(new Set<string>())
 
+  // Clear selection and peek whenever the active player or phase changes
   $effect(() => {
     const _id    = gs?.currentPlayerId
     const _phase = gs?.phase
@@ -47,6 +49,7 @@
     if (!isMyTurn) connection.clearPeek()
   })
 
+  // Active cards for playability checks
   const activeCards = $derived(
     !self ? [] :
     activePile === 'hand' ? self.hand :
@@ -54,6 +57,7 @@
     []
   )
 
+  // Show pickup button only when no valid play exists
   const canPickUp = $derived(
     isMyTurn &&
     gs !== null &&
@@ -79,6 +83,41 @@
     selectedIds = new Set()
   }
 
+  // Playing phase: click selects all same-rank playable cards; click again deselects one
+  function togglePlay(card: Card) {
+    if (!isMyTurn || !self) return
+    if (!cardIsPlayable(card)) return
+    const next = new Set(selectedIds)
+    if (next.has(card.id)) {
+      next.delete(card.id)
+    } else {
+      const pool = activePile === 'hand' ? self.hand : self.faceUp
+      const firstSelected = next.size > 0 ? pool.find(c => next.has(c.id)) : null
+      if (firstSelected && firstSelected.rank !== card.rank) {
+        next.clear()
+      }
+      // Auto-select all cards of this rank in the active pile
+      pool.filter(c => c.rank === card.rank).forEach(c => next.add(c.id))
+    }
+    selectedIds = next
+  }
+
+  function playSelected() {
+    if (selectedIds.size === 0) return
+    connection.playCard([...selectedIds])
+    selectedIds = new Set()
+  }
+
+  // Double-click: immediately play all cards of this rank in the active pile
+  function playNow(card: Card) {
+    if (!isMyTurn || !self) return
+    if (!cardIsPlayable(card)) return
+    const pool = activePile === 'hand' ? self.hand : self.faceUp
+    const ids = pool.filter(c => c.rank === card.rank).map(c => c.id)
+    connection.playCard(ids)
+    selectedIds = new Set()
+  }
+
   // Face-down: first click peeks, second click (or dblclick) plays.
   // Once a card is peeked, clicking another card is blocked.
   function playFaceDown(id: string) {
@@ -92,38 +131,6 @@
       return
     }
     connection.peekFaceDown(id)
-  }
-
-  function togglePlay(card: Card) {
-    if (!isMyTurn || !self) return
-    if (!cardIsPlayable(card)) return
-    const next = new Set(selectedIds)
-    if (next.has(card.id)) {
-      next.delete(card.id)
-    } else {
-      const pool = activePile === 'hand' ? self.hand : self.faceUp
-      const firstSelected = next.size > 0 ? pool.find(c => next.has(c.id)) : null
-      if (firstSelected && firstSelected.rank !== card.rank) {
-        next.clear()
-      }
-      pool.filter(c => c.rank === card.rank).forEach(c => next.add(c.id))
-    }
-    selectedIds = next
-  }
-
-  function playSelected() {
-    if (selectedIds.size === 0) return
-    connection.playCard([...selectedIds])
-    selectedIds = new Set()
-  }
-
-  function playNow(card: Card) {
-    if (!isMyTurn || !self) return
-    if (!cardIsPlayable(card)) return
-    const pool = activePile === 'hand' ? self.hand : self.faceUp
-    const ids = pool.filter(c => c.rank === card.rank).map(c => c.id)
-    connection.playCard(ids)
-    selectedIds = new Set()
   }
 
   // ── Throw-in detection ────────────────────────────────────────────────────
@@ -162,6 +169,15 @@
 
   // ── Discard pile display (top 3) ──────────────────────────────────────────
   const discardTop3 = $derived(gs?.discardPile.slice(-3) ?? [])
+
+  const topCardCount = $derived((() => {
+    const pile = gs?.discardPile
+    if (!pile || pile.length === 0) return 0
+    const topRank = pile[pile.length - 1].rank
+    let count = 0
+    for (let i = pile.length - 1; i >= 0 && pile[i].rank === topRank; i--) count++
+    return count
+  })())
 
   const DISCARD_OFFSETS = [
     'transform: rotate(-4deg) translate(-3px, 2px);',
@@ -211,10 +227,38 @@
     }
   })
 
-  // ── Hand layout ───────────────────────────────────────────────────────────
+  // ── Hand fan layout ───────────────────────────────────────────────────────
+  let handEl = $state<HTMLDivElement | undefined>()
+  let containerWidth = $state(340)
+  let spreadMode = $state(false)
+
+  $effect(() => {
+    const el = handEl
+    if (!el) return
+    containerWidth = el.offsetWidth || 340
+    const obs = new ResizeObserver(entries => {
+      containerWidth = entries[0].contentRect.width
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  })
+
   const sortedHandCards = $derived(
     [...(self?.hand ?? [])].sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.suit.localeCompare(b.suit))
   )
+
+  const fanCards = $derived.by(() => {
+    const cards = sortedHandCards
+    const total = cards.length
+    if (total === 0) return []
+    const spread   = Math.min(40, (containerWidth - 72) / Math.max(total - 1, 1))
+    const rotSpread = Math.min(6, 30 / Math.max(total, 1))
+    const centerX  = containerWidth / 2 - 36
+    return cards.map((c, i) => {
+      const offset = i - (total - 1) / 2
+      return { card: c, tx: centerX + offset * spread, rot: offset * rotSpread, ty: Math.abs(offset) * 3 }
+    })
+  })
 </script>
 
 {#if gs && self}
@@ -229,6 +273,7 @@
           {opp.name}
           {#if opp.isFinished}<span class="badge-done">Done</span>{/if}
         </div>
+        <!-- Face-down backs -->
         <div class="opp-row">
           {#each { length: opp.faceDownCount } as _}
             <div class="mini-card back"><span class="mini-fd-q">?</span></div>
@@ -237,6 +282,7 @@
             <div class="mini-card empty"></div>
           {/each}
         </div>
+        <!-- Face-up cards -->
         <div class="opp-row">
           {#each opp.faceUp as card}
             <div class="mini-card front" class:red={isRed(card.suit)} class:special={isSpecial(card.rank)}>
@@ -250,6 +296,7 @@
         <div class="opp-hand-count">{opp.handCount} in hand</div>
       </div>
     {/each}
+
     {#if gs.opponents.length === 0}
       <div class="no-opponents">No opponents yet</div>
     {/if}
@@ -270,6 +317,7 @@
 
     {#if phase !== 'setup'}
       <div class="center-row">
+        <!-- Draw deck -->
         <div class="pile-wrap">
           <div class="draw-deck">
             {#if gs.drawPileCount > 2}<div class="card back" style="transform:translate(-2px,3px)"></div>{/if}
@@ -280,6 +328,7 @@
           <div class="pile-label">Draw ({gs.drawPileCount})</div>
         </div>
 
+        <!-- Discard pile -->
         <div class="pile-wrap">
           <div class="discard-pile">
             {#if discardTop3.length === 0}
@@ -294,11 +343,19 @@
                 >
                   <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
                   <div class="card-bg-suit">{suitSymbol(card.suit)}</div>
+                  {#if i === discardTop3.length - 1 && topCardCount > 1}
+                    <div class="top-card-count">{topCardCount}</div>
+                  {/if}
                 </div>
               {/each}
             {/if}
           </div>
           <div class="pile-label">Discard ({gs.discardPile.length})</div>
+          {#if gs.effectiveTop && discardTop3.length > 0 && discardTop3[discardTop3.length - 1].rank === 3}
+            <div class="effective-top-label">
+              effective: {rankLabel(gs.effectiveTop.rank)}{suitSymbol(gs.effectiveTop.suit)}
+            </div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -334,7 +391,7 @@
       {/each}
     </div>
 
-    <!-- Face-up row -->
+    <!-- Face-up row (shows empty slots during setup before confirming) -->
     <div class="your-faceup-row">
       {#each self.faceUp as card}
         <button
@@ -355,10 +412,16 @@
       {/each}
     </div>
 
-    <!-- Hand -->
+    <!-- Fanned hand -->
     {#if self.hand.length > 0}
-      <div class="your-hand">
-        {#each sortedHandCards as card, i}
+      <div class="hand-header">
+        <button class="btn-spread" onclick={() => spreadMode = !spreadMode} title={spreadMode ? 'Fan view' : 'Spread view'}>
+          {spreadMode ? '🂠' : '⊞'}
+        </button>
+      </div>
+      <div class="your-hand" class:spread={spreadMode} bind:this={handEl}>
+        {#each (spreadMode ? sortedHandCards : fanCards.map(f => f.card)) as card, i}
+          {@const fanData = spreadMode ? null : fanCards[i]}
           <button
             class="hand-card card front"
             class:black-suit={!isRed(card.suit)}
@@ -367,7 +430,7 @@
             class:selectable={phase === 'setup' ? !self.hasSetFaceUp : (isMyTurn && activePile === 'hand' && cardIsPlayable(card))}
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
             class:throw-in={throwInIds.includes(card.id)}
-            style="z-index:{i};"
+            style={fanData ? `left:${fanData.tx}px; transform: rotate(${fanData.rot}deg) translateY(${fanData.ty}px); z-index:${i};` : `z-index:${i};`}
             onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
             ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
           >
@@ -410,6 +473,7 @@
       {/if}
     </div>
 
+    <!-- Error notice -->
     {#if connection.error}
       <div class="error-notice" role="alert">
         {connection.error}
@@ -605,6 +669,7 @@
       inset 0 0 0 5px rgba(255,160,100,0.2);
   }
 
+  /* Face-down cards — red with visible red stripe pattern */
   .card.fd-back {
     background: linear-gradient(135deg, #7a0000 0%, #c0152a 100%);
     border: 1px solid rgba(255,100,100,0.3);
@@ -643,6 +708,15 @@
     opacity: 0.5;
   }
 
+  .card.playable {
+    cursor: pointer;
+  }
+
+  .card.playable:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 3px 10px 24px rgba(0,0,0,0.6) !important;
+  }
+
   .card.selected {
     outline: 2px solid var(--gold);
     outline-offset: 2px;
@@ -662,6 +736,24 @@
     transform: rotate(180deg);
   }
 
+  .top-card-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e53;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: bold;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
   /* Small cards */
   .card.sm {
     width: 64px;
@@ -669,8 +761,25 @@
     border-radius: 7px;
   }
 
-  .sm-rank { font-size: 1rem; line-height: 1; font-family: 'Bebas Neue', sans-serif; }
-  .sm-suit { font-size: 0.7rem; line-height: 1; }
+  /* Unplayable cards */
+  .card.unplayable {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(60%);
+  }
+
+  /* Locked face-down cards (another fd card is already peeked) */
+  .card.locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(40%);
+  }
+
+  /* Peeked face-down card */
+  .card.peeked {
+    box-shadow: 3px 6px 16px rgba(0,0,0,0.5), 0 0 16px rgba(255,190,11,0.5);
+    border-color: rgba(255,190,11,0.5);
+  }
 
   /* Face-down question mark */
   .fd-question {
@@ -684,6 +793,19 @@
     color: rgba(220,50,50,0.9);
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
+
+  /* Effective top indicator */
+  .effective-top-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,190,11,0.8);
+    margin-top: 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .sm-rank { font-size: 1rem; line-height: 1; font-family: 'Bebas Neue', sans-serif; }
+  .sm-suit { font-size: 0.7rem; line-height: 1; }
 
   /* ── Center ── */
   .center-table {
@@ -781,6 +903,32 @@
     gap: 6px;
   }
 
+  /* Fanned hand */
+  .hand-header {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: -0.25rem;
+  }
+
+  .btn-spread {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 5px;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+    padding: 0.15rem 0.45rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .btn-spread:hover {
+    background: rgba(255,255,255,0.13);
+    color: rgba(255,255,255,0.85);
+  }
+
   .your-hand {
     display: flex;
     position: relative;
@@ -790,16 +938,87 @@
     margin-bottom: 0.25rem;
   }
 
+  /* Spread mode: scrollable row */
+  .your-hand.spread {
+    height: auto;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 8px 4px 16px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+
+  .your-hand.spread .hand-card {
+    position: relative;
+    bottom: auto;
+    flex-shrink: 0;
+  }
+
   .hand-card {
     position: absolute;
     bottom: 0;
     cursor: default;
   }
 
+  .hand-card.selectable {
+    cursor: pointer;
+  }
+
+  /* Hover lift for all hand cards (including when not your turn, for browsing) */
   .hand-card:hover {
     transform: translateY(-12px) rotate(0deg) !important;
     box-shadow: 4px 8px 24px rgba(0,0,0,0.7) !important;
     z-index: 100 !important;
+  }
+
+  .hand-card.selectable:hover {
+    transform: translateY(-16px) rotate(0deg) !important;
+    box-shadow: 4px 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(247,37,133,0.25) !important;
+    z-index: 100 !important;
+  }
+
+  .hand-card.throw-in {
+    cursor: pointer;
+    box-shadow: 0 0 14px 3px rgba(255, 165, 0, 0.7), 4px 8px 24px rgba(0,0,0,0.5) !important;
+    outline: 2px solid rgba(255, 165, 0, 0.8);
+    animation: throw-in-pulse 1s ease-in-out infinite alternate;
+  }
+
+  .hand-card.throw-in:hover {
+    transform: translateY(-16px) rotate(0deg) !important;
+    box-shadow: 0 0 24px 6px rgba(255, 165, 0, 0.9), 4px 8px 24px rgba(0,0,0,0.7) !important;
+    z-index: 10 !important;
+  }
+
+  @keyframes throw-in-pulse {
+    from { box-shadow: 0 0 10px 2px rgba(255, 165, 0, 0.5), 4px 8px 24px rgba(0,0,0,0.5); }
+    to   { box-shadow: 0 0 20px 6px rgba(255, 165, 0, 0.85), 4px 8px 24px rgba(0,0,0,0.5); }
+  }
+
+  .btn-throw-in {
+    background: linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,80,0,0.2));
+    border: 1px solid rgba(255,140,0,0.7);
+    border-radius: 8px;
+    color: #ffa040;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 1.4rem;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    animation: throw-in-btn-pulse 1s ease-in-out infinite alternate;
+  }
+
+  .btn-throw-in:hover {
+    background: linear-gradient(135deg, rgba(255,140,0,0.35), rgba(255,80,0,0.35));
+    box-shadow: 0 0 16px rgba(255,140,0,0.4);
+  }
+
+  @keyframes throw-in-btn-pulse {
+    from { box-shadow: 0 0 6px rgba(255,140,0,0.3); }
+    to   { box-shadow: 0 0 14px rgba(255,140,0,0.7); }
   }
 
   .empty-hand-hint {
@@ -841,68 +1060,22 @@
     cursor: not-allowed;
   }
 
-  /* ── Playability states ── */
-  .card.playable {
-    outline: 1px solid rgba(100,220,100,0.4);
-    cursor: pointer;
-  }
-
-  .card.playable:hover {
-    outline: 2px solid rgba(100,220,100,0.7);
-    transform: translateY(-4px);
-  }
-
-  .card.unplayable { opacity: 0.4; cursor: not-allowed; }
-  .card.selectable { cursor: pointer; }
-  .card.locked { opacity: 0.3; cursor: not-allowed; }
-  .hand-card.throw-in {
-    outline: 2px solid rgba(255,190,11,0.7);
-    outline-offset: 2px;
-    cursor: pointer;
-    animation: pulse-gold 1.5s ease-in-out infinite;
-  }
-
-  .btn-throw-in {
-    background: rgba(255,190,11,0.15);
-    border: 2px solid rgba(255,190,11,0.6);
-    border-radius: 8px;
-    color: var(--gold);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.2rem;
-    letter-spacing: 0.1em;
-    padding: 0.55rem 1.8rem;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.2s;
-    box-shadow: 0 4px 16px rgba(255,190,11,0.2);
-    animation: pulse-gold-btn 1.5s ease-in-out infinite;
-  }
-
-  .btn-throw-in:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(255,190,11,0.35);
-  }
-  .card.peeked {
-    outline: 2px solid var(--gold);
-    outline-offset: 2px;
-    transform: translateY(-8px);
-  }
-
   .btn-pickup {
-    background: rgba(255,190,11,0.15);
+    background: none;
     border: 1px solid rgba(255,190,11,0.4);
     border-radius: 8px;
     color: var(--gold);
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.1rem;
+    font-size: 1rem;
     letter-spacing: 0.1em;
-    padding: 0.55rem 1.4rem;
+    padding: 0.5rem 1.2rem;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.2s;
+    transition: background 0.15s, box-shadow 0.15s;
   }
 
   .btn-pickup:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(255,190,11,0.2);
+    background: rgba(255,190,11,0.1);
+    box-shadow: 0 0 12px rgba(255,190,11,0.2);
   }
 
   /* ── Error notice ── */
