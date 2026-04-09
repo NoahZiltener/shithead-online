@@ -126,6 +126,40 @@
     selectedIds = new Set()
   }
 
+  // ── Throw-in detection ────────────────────────────────────────────────────
+  // When it's not your turn, detect if you can complete four-of-a-kind by throwing in hand cards
+
+  const throwInRank = $derived.by((): Rank | null => {
+    if (isMyTurn || phase !== 'playing' || !gs || !self || self.isFinished) return null
+    if (!self.hand.length || !gs.discardPile.length) return null
+
+    const pile = gs.discardPile
+    let topRank: Rank | null = null
+    for (let i = pile.length - 1; i >= 0; i--) {
+      if (pile[i].rank !== 3) { topRank = pile[i].rank; break }
+    }
+    if (!topRank) return null
+
+    let pileCount = 0
+    for (let i = pile.length - 1; i >= 0; i--) {
+      if (pile[i].rank === 3) continue
+      if (pile[i].rank === topRank) pileCount++
+      else break
+    }
+
+    const myCount = self.hand.filter(c => c.rank === topRank).length
+    return myCount > 0 && pileCount + myCount >= 4 ? topRank : null
+  })
+
+  const throwInIds = $derived(
+    throwInRank !== null ? self?.hand.filter(c => c.rank === throwInRank).map(c => c.id) ?? [] : []
+  )
+
+  function doThrowIn() {
+    if (throwInIds.length === 0) return
+    connection.throwIn(throwInIds)
+  }
+
   // ── Discard pile display (top 3) ──────────────────────────────────────────
   const discardTop3 = $derived(gs?.discardPile.slice(-3) ?? [])
 
@@ -332,9 +366,10 @@
             class:selected={selectedIds.has(card.id)}
             class:selectable={phase === 'setup' ? !self.hasSetFaceUp : (isMyTurn && activePile === 'hand' && cardIsPlayable(card))}
             class:unplayable={phase === 'playing' && isMyTurn && activePile === 'hand' && !cardIsPlayable(card)}
+            class:throw-in={throwInIds.includes(card.id)}
             style="z-index:{i};"
-            onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card) }}
-            ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card) }}
+            onclick={() => { if (phase === 'setup') toggleSetup(card.id); else if (isMyTurn && activePile === 'hand') togglePlay(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
+            ondblclick={() => { if (phase === 'playing' && isMyTurn && activePile === 'hand') playNow(card); else if (throwInIds.includes(card.id)) doThrowIn() }}
           >
             <div><div class="card-rank">{rankLabel(card.rank)}</div><div class="card-suit">{suitSymbol(card.suit)}</div></div>
             <div class="card-bg-suit">{suitSymbol(card.suit)}</div>
@@ -356,6 +391,10 @@
           onclick={confirmSetup}
         >
           Confirm face-up ({selectedIds.size}/3)
+        </button>
+      {:else if phase === 'playing' && throwInRank !== null}
+        <button class="btn-throw-in" onclick={doThrowIn}>
+          Throw In! ({throwInIds.length}x{rankLabel(throwInRank)})
         </button>
       {:else if phase === 'playing' && isMyTurn}
         {#if selectedIds.size > 0}
@@ -816,6 +855,32 @@
   .card.unplayable { opacity: 0.4; cursor: not-allowed; }
   .card.selectable { cursor: pointer; }
   .card.locked { opacity: 0.3; cursor: not-allowed; }
+  .hand-card.throw-in {
+    outline: 2px solid rgba(255,190,11,0.7);
+    outline-offset: 2px;
+    cursor: pointer;
+    animation: pulse-gold 1.5s ease-in-out infinite;
+  }
+
+  .btn-throw-in {
+    background: rgba(255,190,11,0.15);
+    border: 2px solid rgba(255,190,11,0.6);
+    border-radius: 8px;
+    color: var(--gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.1em;
+    padding: 0.55rem 1.8rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(255,190,11,0.2);
+    animation: pulse-gold-btn 1.5s ease-in-out infinite;
+  }
+
+  .btn-throw-in:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(255,190,11,0.35);
+  }
   .card.peeked {
     outline: 2px solid var(--gold);
     outline-offset: 2px;
