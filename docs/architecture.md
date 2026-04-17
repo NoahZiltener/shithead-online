@@ -38,3 +38,19 @@ cd client && npm install && npm run dev
 # Full stack via Docker
 docker compose up --build
 ```
+
+## Routing
+
+In development, Vite proxies:
+- `/ws` → `ws://localhost:8000` (WebSocket)
+- `/api` → `http://localhost:8000`
+
+In production (Docker), nginx handles proxying to the server container.
+
+## Real-time Strategy
+
+WebSockets via Hono's `upgradeWebSocket` helper. The server maintains per-room connection sets. Game state changes are broadcast to all clients in a room.
+
+## Game Logic Location
+
+All game rules live in `shared/src/` so they can be imported by the server (authoritative) and optionally by the client for local validation.
