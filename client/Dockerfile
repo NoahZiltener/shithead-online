@@ -8,6 +8,7 @@ COPY client/ ./client/
 RUN cd client && npm run build
 
 FROM nginx:alpine
+RUN apk upgrade --no-cache
 COPY --from=build /app/client/dist /usr/share/nginx/html
 COPY client/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
