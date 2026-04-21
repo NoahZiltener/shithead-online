@@ -296,23 +296,57 @@ Deno.test('WS game: valid play updates game state for all players', async () => 
 Deno.test('WS game: pick_up_pile works and advances turn', async () => {
   await withServer(async (base) => {
     const wsUrl = base.replace('http', 'ws') + '/ws'
-    const { alice, bob } = await setupRoom(wsUrl)
+    const { alice, bob, aliceId, bobId } = await setupRoom(wsUrl)
     const { aliceState, bobState } = await startGame(alice, bob)
-    const { alicePlayState } = await completSetup(alice, bob, aliceState, bobState)
+    const setupStates = await completSetup(alice, bob, aliceState, bobState)
 
-    // Avoid rank 10 (burns pile) and rank 8 (in 2-player game, skips Bob so Alice goes again).
-    // Both would prevent Bob from picking up on the next turn.
-    const safeCard = alicePlayState.self.hand.find((c) => c.rank !== 10 && c.rank !== 8) ?? alicePlayState.self.hand[0]
-    alice.send({ type: 'play_card', cardIds: [safeCard.id] })
-    await Promise.all([alice.next(), bob.next()]) // game_state
+    let latestAlice = setupStates.alicePlayState
+    let latestBob = setupStates.bobPlayState
 
-    // Now it's Bob's turn; Bob picks up the pile
-    bob.send({ type: 'pick_up_pile' })
-    const [aliceUpd, bobUpd] = await Promise.all([alice.next(), bob.next()]) as { type: string; state: ClientGameState }[]
-    assertEquals(aliceUpd.type, 'game_state')
-    assertEquals(bobUpd.state.discardPile.length, 0)
-    // Bob started with 3 hand cards and gained 1 from the pile = 4
-    assertEquals(bobUpd.state.self.hand.length, 4)
+    // Drive the game until Bob has no valid play on his turn, then verify pick-up.
+    for (let i = 0; i < 200; i++) {
+      const currentPlayerId = latestAlice.currentPlayerId
+      if (!currentPlayerId) throw new Error('Expected current player during playing phase')
+
+      if (currentPlayerId === bobId) {
+        const bobChoice = choosePlay(latestBob)
+        if (bobChoice.action === 'pick_up') {
+          const pileSizeBefore = latestBob.discardPile.length
+          const bobHandBefore = latestBob.self.hand.length
+
+          bob.send({ type: 'pick_up_pile' })
+          const [aliceUpd, bobUpd] = await Promise.all([alice.next(), bob.next()]) as { type: string; state: ClientGameState }[]
+          assertEquals(aliceUpd.type, 'game_state')
+          assertEquals(bobUpd.type, 'game_state')
+          assertEquals(bobUpd.state.discardPile.length, 0)
+          assertEquals(bobUpd.state.self.hand.length, bobHandBefore + pileSizeBefore)
+          assertEquals(bobUpd.state.currentPlayerId, aliceId)
+
+          alice.close()
+          bob.close()
+          return
+        }
+
+        bob.send({ type: 'play_card', cardIds: bobChoice.cardIds })
+      } else if (currentPlayerId === aliceId) {
+        const aliceChoice = choosePlay(latestAlice)
+        if (aliceChoice.action === 'pick_up') {
+          alice.send({ type: 'pick_up_pile' })
+        } else {
+          alice.send({ type: 'play_card', cardIds: aliceChoice.cardIds })
+        }
+      } else {
+        throw new Error(`Unexpected current player id: ${currentPlayerId}`)
+      }
+
+      const [aliceUpd, bobUpd] = await Promise.all([alice.next(), bob.next()]) as { type: string; state: ClientGameState }[]
+      assertEquals(aliceUpd.type, 'game_state')
+      assertEquals(bobUpd.type, 'game_state')
+      latestAlice = aliceUpd.state
+      latestBob = bobUpd.state
+    }
+
+    throw new Error('Could not reach a state where Bob had to pick up the pile')
 
     alice.close()
     bob.close()

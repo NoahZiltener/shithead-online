@@ -2,7 +2,14 @@ import { Hono } from 'hono'
 import { createRoomStore, type RoomStore } from './rooms.ts'
 import { createWsHandler } from './ws.ts'
 
-const DISCORD_WEBHOOK_URL = Deno.env.get('DISCORD_FEEDBACK_WEBHOOK_URL') ?? ''
+function getFeedbackWebhookUrl(): string {
+  try {
+    return Deno.env.get('DISCORD_FEEDBACK_WEBHOOK_URL') ?? ''
+  } catch (error) {
+    if (error instanceof Deno.errors.NotCapable) return ''
+    throw error
+  }
+}
 
 export function createApp(store: RoomStore = createRoomStore()): Hono {
   const app = new Hono()
@@ -37,11 +44,12 @@ export function createApp(store: RoomStore = createRoomStore()): Hono {
       }],
     }
 
-    if (!DISCORD_WEBHOOK_URL) {
+    const discordWebhookUrl = getFeedbackWebhookUrl()
+    if (!discordWebhookUrl) {
       return c.json({ error: 'Feedback is not configured.' }, 503)
     }
 
-    const res = await fetch(DISCORD_WEBHOOK_URL, {
+    const res = await fetch(discordWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

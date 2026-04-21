@@ -1,8 +1,14 @@
 import type { LogRecord } from '@logtape/logtape'
 import type { ServerGameState } from './game/types.ts'
 
-const GAME_WEBHOOK_URL = Deno.env.get('DISCORD_GAME_WEBHOOK_URL') ?? ''
-const ALERTS_WEBHOOK_URL = Deno.env.get('DISCORD_ALERTS_WEBHOOK_URL') ?? ''
+function getEnvVar(name: string): string {
+  try {
+    return Deno.env.get(name) ?? ''
+  } catch (error) {
+    if (error instanceof Deno.errors.NotCapable) return ''
+    throw error
+  }
+}
 
 async function postWebhook(url: string, payload: unknown): Promise<void> {
   if (!url) return
@@ -23,7 +29,8 @@ export async function sendGameSummary(
   state: ServerGameState,
   startedAt: number,
 ): Promise<void> {
-  if (!GAME_WEBHOOK_URL) return
+  const gameWebhookUrl = getEnvVar('DISCORD_GAME_WEBHOOK_URL')
+  if (!gameWebhookUrl) return
 
   const players = state.players
   const durationMs = Date.now() - startedAt
@@ -46,7 +53,7 @@ export async function sendGameSummary(
   const loserPlayer = state.loser ? players.find((p) => p.id === state.loser) : null
   if (loserPlayer) rankingLines.push(`💩 ${loserPlayer.name}`)
 
-  await postWebhook(GAME_WEBHOOK_URL, {
+  await postWebhook(gameWebhookUrl, {
     embeds: [{
       title: `Game Over — Room ${roomId}`,
       description: rankingLines.join('\n') || 'No ranking available',
@@ -67,7 +74,8 @@ function formatMessage(record: LogRecord): string {
 
 export function discordAlertsSink(record: LogRecord): void {
   if (record.level !== 'warning' && record.level !== 'error' && record.level !== 'fatal') return
-  if (!ALERTS_WEBHOOK_URL) return
+  const alertsWebhookUrl = getEnvVar('DISCORD_ALERTS_WEBHOOK_URL')
+  if (!alertsWebhookUrl) return
 
   const levelColors: Record<string, number> = {
     warning: 0xffd60a,
@@ -97,7 +105,7 @@ export function discordAlertsSink(record: LogRecord): void {
   }
 
   // Fire-and-forget — don't block the logger
-  postWebhook(ALERTS_WEBHOOK_URL, {
+  postWebhook(alertsWebhookUrl, {
     embeds: [{
       title: `${emoji} ${record.level.toUpperCase()}: ${text.slice(0, 256)}`,
       color,
