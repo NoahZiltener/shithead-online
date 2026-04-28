@@ -204,13 +204,15 @@
     phase === 'setup'    ? (self?.hasSetFaceUp ? 'Waiting for others…' : 'Pick 3 face-up cards') :
     phase === 'finished' ? '' :
     isMyTurn             ? 'Your Turn' :
-    (connection.players.find(p => p.id === gs?.currentPlayerId)?.name ?? '?') + "'s Turn"
+    (gs?.opponents.find(p => p.id === gs?.currentPlayerId)?.name ?? '?') + "'s Turn"
   )
 
   // ── Loser overlay ─────────────────────────────────────────────────────────
   const loserName = $derived(
     gs?.loser
-      ? (connection.players.find(p => p.id === gs.loser)?.name ?? 'Someone')
+      ? (gs.loser === connection.playerId
+          ? gs.self.name
+          : gs.opponents.find(p => p.id === gs.loser)?.name ?? 'Someone')
       : null
   )
 
@@ -277,10 +279,12 @@
   <!-- Opponents row -->
   <div class="opponents-row">
     {#each gs.opponents as opp}
+      {@const isDisconnected = connection.disconnectedInGameIds.has(opp.id)}
       <div class="opponent-area" class:finished={opp.isFinished}>
         <div class="opponent-name-tag">
           {opp.name}
-          {#if opp.isFinished}<span class="badge-done">Done</span>{/if}
+          {#if isDisconnected}<span class="badge-left">Left</span>
+          {:else if opp.isFinished}<span class="badge-done">Done</span>{/if}
         </div>
         <!-- Face-down backs -->
         <div class="opp-row">
@@ -579,6 +583,16 @@
     font-size: 0.6rem;
     background: var(--gold);
     color: var(--ink);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+  }
+
+  .badge-left {
+    font-size: 0.6rem;
+    background: var(--red);
+    color: #fff;
     padding: 0.1rem 0.4rem;
     border-radius: 3px;
     font-family: 'DM Sans', sans-serif;

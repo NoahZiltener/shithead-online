@@ -315,7 +315,54 @@ export function createWsHandler(store: RoomStore) {
             broadcast(room, { type: 'admin_changed', adminId: newAdmin.id })
           }
 
-          // Handle mid-game disconnect
+          // Handle mid-game disconnect (setup phase)
+          if (room.gameState && room.gameState.phase === 'setup') {
+            const gamePlayerIdx = room.gameState.players.findIndex((p) => p.id === disconnectedId)
+            if (gamePlayerIdx !== -1) {
+              const player = room.gameState.players[gamePlayerIdx]
+              // Auto-assign face-up cards if not already done (pick first 3 from hand)
+              const newFaceUp = player.hasSetFaceUp ? player.faceUp : player.hand.slice(0, 3)
+              const newHand = player.hasSetFaceUp ? player.hand : player.hand.slice(3)
+              const newPlayers = room.gameState.players.map((p, i) =>
+                i === gamePlayerIdx ? { ...p, hand: newHand, faceUp: newFaceUp, hasSetFaceUp: true, isFinished: true } : p
+              )
+              const newFinished = [...room.gameState.finishedPlayerIds]
+              if (!newFinished.includes(disconnectedId)) newFinished.push(disconnectedId)
+              const activePlayers = newPlayers.filter((p) => !p.isFinished)
+
+              if (activePlayers.length <= 1) {
+                room.gameState = {
+                  ...room.gameState,
+                  players: newPlayers,
+                  finishedPlayerIds: newFinished,
+                  phase: 'finished',
+                  loser: activePlayers[0]?.id,
+                }
+                logger.info('Game ended in room {roomId} due to player {playerId} disconnecting during setup', { roomId: room.id, playerId: disconnectedId })
+                sendGameSummary(room.id, room.gameMode, room.gameState, room.gameStartedAt ?? Date.now())
+              } else {
+                const allReady = activePlayers.every((p) => p.hasSetFaceUp)
+                // Ensure currentPlayerIndex points to an active player when transitioning to playing
+                let currentIdx = room.gameState.currentPlayerIndex
+                if (newPlayers[currentIdx]?.isFinished) {
+                  const n = newPlayers.length
+                  let next = (currentIdx + 1) % n
+                  while (newPlayers[next].isFinished) next = (next + 1) % n
+                  currentIdx = next
+                }
+                room.gameState = {
+                  ...room.gameState,
+                  players: newPlayers,
+                  finishedPlayerIds: newFinished,
+                  phase: allReady ? 'playing' : 'setup',
+                  currentPlayerIndex: currentIdx,
+                }
+              }
+              if (room.players.size > 0) broadcastGameState(room)
+            }
+          }
+
+          // Handle mid-game disconnect (playing phase)
           if (room.gameState && room.gameState.phase === 'playing') {
             const gamePlayerIdx = room.gameState.players.findIndex((p) => p.id === disconnectedId)
             if (gamePlayerIdx !== -1) {

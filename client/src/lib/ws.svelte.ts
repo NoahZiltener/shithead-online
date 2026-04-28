@@ -15,6 +15,7 @@ class GameConnection {
   players = $state<Player[]>([])
   gameStarted = $state(false)
   gameState = $state<ClientGameState | null>(null)
+  disconnectedInGameIds = $state<Set<string>>(new Set())
   error = $state<string | null>(null)
   peekedFdId = $state<string | null>(null)
   peekedCard = $state<Card | null>(null)
@@ -81,6 +82,9 @@ class GameConnection {
         break
       case 'player_left':
         this.players = this.players.filter((p) => p.id !== msg.playerId)
+        if (this.gameStarted) {
+          this.disconnectedInGameIds = new Set([...this.disconnectedInGameIds, msg.playerId])
+        }
         break
       case 'admin_changed':
         this.adminId = msg.adminId
@@ -98,6 +102,7 @@ class GameConnection {
         this.adminId = null
         this.players = []
         this.gameMode = 'normal'
+        this.disconnectedInGameIds = new Set()
         this.status = 'disconnected'
         break
       case 'game_started':
@@ -117,6 +122,7 @@ class GameConnection {
       case 'lobby_reset':
         this.gameStarted = false
         this.gameState = null
+        this.disconnectedInGameIds = new Set()
         this.peekedFdId = null
         this.peekedCard = null
         break
@@ -199,6 +205,7 @@ class GameConnection {
     this.gameMode = 'normal'
     this.gameStarted = false
     this.gameState = null
+    this.disconnectedInGameIds = new Set()
     this.peekedFdId = null
     this.peekedCard = null
     this.status = 'disconnected'
