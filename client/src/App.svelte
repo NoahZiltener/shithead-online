@@ -4,16 +4,27 @@
   import HomeView from './views/HomeView.svelte'
   import LobbyView from './views/LobbyView.svelte'
   import GameView from './views/GameView.svelte'
+  import DemoView from './views/DemoView.svelte'
   import FeedbackButton from '$lib/FeedbackButton.svelte'
 
-  type Screen = 'home' | 'lobby' | 'game'
+  type Screen = 'home' | 'lobby' | 'game' | 'demo'
   let screen = $state<Screen>('home')
 
-  onMount(() => { connection.tryRestoreSession() })
+  onMount(() => {
+    connection.tryRestoreSession()
+
+    function onKey(e: KeyboardEvent) {
+      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+      if (e.shiftKey && e.key === 'D' && screen === 'home' && !typing) screen = 'demo'
+      if (e.key === 'Escape' && screen === 'demo') screen = 'home'
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   $effect(() => {
     if (!connection.playerId) {
-      screen = 'home'
+      if (screen !== 'demo') screen = 'home'
     } else if (connection.gameStarted) {
       screen = 'game'
     } else {
@@ -30,11 +41,13 @@
   <GameView />
 {:else if screen === 'lobby'}
   <LobbyView />
+{:else if screen === 'demo'}
+  <DemoView onBack={() => { screen = 'home' }} />
 {:else}
   <HomeView notice={connection.error} />
 {/if}
 
-<FeedbackButton {screen} />
+<FeedbackButton screen={screen === 'demo' ? 'home' : screen} />
 
 <style>
   .nav-bar {

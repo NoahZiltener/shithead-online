@@ -61,6 +61,7 @@
     >
       Create New Room
     </button>
+
   </div>
 </div>
 
@@ -264,4 +265,5 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
 </style>
