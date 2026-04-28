@@ -254,28 +254,33 @@ export function createWsHandler(store: RoomStore) {
             return
           }
           const gameState = room.gameState
-          const player = gameState.players[gameState.currentPlayerIndex]
-          if (player.id !== playerId) {
-            send(ws, { type: 'error', message: 'Not your turn.' })
+          const activePlayer = gameState.players[gameState.currentPlayerIndex]
+          const requestingPlayer = gameState.players.find(p => p.id === playerId)
+          if (!requestingPlayer) {
+            send(ws, { type: 'error', message: 'Player not found.' })
             return
           }
-          const drawPileEmpty = gameState.drawPile.length === 0
-          const isInFaceDownPhase = player.hand.length === 0 && !(drawPileEmpty && player.faceUp.length > 0)
-          if (!isInFaceDownPhase) {
-            send(ws, { type: 'error', message: 'Not in face-down phase.' })
-            return
+          // On-turn: enforce face-down phase (hand must be empty)
+          if (activePlayer.id === playerId) {
+            const drawPileEmpty = gameState.drawPile.length === 0
+            const isInFaceDownPhase = requestingPlayer.hand.length === 0 && !(drawPileEmpty && requestingPlayer.faceUp.length > 0)
+            if (!isInFaceDownPhase) {
+              send(ws, { type: 'error', message: 'Not in face-down phase.' })
+              return
+            }
           }
+          // Off-turn: freely allow peeking own face-down cards for strategy review
           const fdMatch = msg.fdId.match(/^fd_(\d+)$/)
           if (!fdMatch) {
             send(ws, { type: 'error', message: 'Invalid face-down card ID.' })
             return
           }
           const fdIdx = parseInt(fdMatch[1], 10)
-          if (fdIdx < 0 || fdIdx >= player.faceDown.length) {
+          if (fdIdx < 0 || fdIdx >= requestingPlayer.faceDown.length) {
             send(ws, { type: 'error', message: 'Invalid face-down card index.' })
             return
           }
-          send(ws, { type: 'face_down_revealed', fdId: msg.fdId, card: player.faceDown[fdIdx] })
+          send(ws, { type: 'face_down_revealed', fdId: msg.fdId, card: requestingPlayer.faceDown[fdIdx] })
           return
         }
 

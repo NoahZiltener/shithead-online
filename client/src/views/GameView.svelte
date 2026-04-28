@@ -41,12 +41,11 @@
   // ── Selection ─────────────────────────────────────────────────────────────
   let selectedIds = $state(new Set<string>())
 
-  // Clear selection and peek whenever the active player or phase changes
+  // Clear selection whenever the active player or phase changes
   $effect(() => {
     const _id    = gs?.currentPlayerId
     const _phase = gs?.phase
     selectedIds = new Set()
-    if (!isMyTurn) connection.clearPeek()
   })
 
   // Active cards for playability checks
@@ -119,11 +118,17 @@
   }
 
   // Face-down: first click peeks, second click (or dblclick) plays.
-  // Once a card is peeked, clicking another card is blocked.
+  // Off-turn: clicking always peeks (freely switch between cards for strategy review).
+  // On-turn: once a card is peeked, clicking it again plays it; clicking another is blocked.
   function playFaceDown(id: string) {
-    if (!isMyTurn || activePile !== 'faceDown' || phase !== 'playing') return
+    if (phase !== 'playing') return
+    if (!isMyTurn) {
+      // Off-turn: freely peek any face-down card to review hand for strategy
+      connection.peekFaceDown(id)
+      return
+    }
+    if (activePile !== 'faceDown') return
     if (connection.peekedFdId !== null) {
-      // A card is already peeked — only allow playing that same card
       if (connection.peekedFdId === id) {
         connection.playCard([id])
         connection.clearPeek()
@@ -230,7 +235,8 @@
   // ── Hand fan layout ───────────────────────────────────────────────────────
   let handEl = $state<HTMLDivElement | undefined>()
   let containerWidth = $state(340)
-  let spreadMode = $state(false)
+  const AUTO_SPREAD_THRESHOLD = 7
+  let spreadPref = $state<boolean | null>(null)  // null = auto-detect from card count
 
   $effect(() => {
     const el = handEl
@@ -246,6 +252,9 @@
   const sortedHandCards = $derived(
     [...(self?.hand ?? [])].sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.suit.localeCompare(b.suit))
   )
+
+  // Auto-spread when hand is crowded; manual override via toggle button
+  const spreadMode = $derived(spreadPref ?? sortedHandCards.length >= AUTO_SPREAD_THRESHOLD)
 
   const fanCards = $derived.by(() => {
     const cards = sortedHandCards
@@ -377,9 +386,10 @@
           class:black-suit={isPeeked && peekedCard && !isRed(peekedCard.suit)}
           class:special={isPeeked && peekedCard && isSpecial(peekedCard.rank)}
           class:playable={isMyTurn && activePile === 'faceDown' && phase === 'playing' && (connection.peekedFdId === null || isPeeked)}
-          class:locked={!isPeeked && connection.peekedFdId !== null}
+          class:browsable={!isMyTurn && phase === 'playing'}
+          class:locked={isMyTurn && !isPeeked && connection.peekedFdId !== null}
           class:peeked={isPeeked}
-          aria-label={isPeeked ? 'Play this card' : 'Flip face-down card'}
+          aria-label={isPeeked ? (isMyTurn ? 'Play this card' : 'Peeked card (strategy view)') : 'Peek face-down card'}
           onclick={() => playFaceDown(fdId)}
         >
           {#if isPeeked && peekedCard}
@@ -415,7 +425,7 @@
     <!-- Fanned hand -->
     {#if self.hand.length > 0}
       <div class="hand-header">
-        <button class="btn-spread" onclick={() => spreadMode = !spreadMode} title={spreadMode ? 'Fan view' : 'Spread view'}>
+        <button class="btn-spread" onclick={() => spreadPref = !spreadMode} title={spreadMode ? 'Fan view' : 'Spread view'}>
           {spreadMode ? '🂠' : '⊞'}
         </button>
       </div>
@@ -768,11 +778,23 @@
     filter: grayscale(60%);
   }
 
-  /* Locked face-down cards (another fd card is already peeked) */
+  /* Locked face-down cards (another fd card is already peeked, on-turn only) */
   .card.locked {
     opacity: 0.3;
     cursor: not-allowed;
     filter: grayscale(40%);
+  }
+
+  /* Browsable face-down cards during opponent's turn (peek for strategy) */
+  .card.browsable {
+    cursor: pointer;
+    opacity: 0.9;
+  }
+
+  .card.browsable:hover {
+    opacity: 1;
+    box-shadow: 3px 6px 16px rgba(0,0,0,0.5), 0 0 10px rgba(147,112,219,0.4);
+    transform: translateY(-4px);
   }
 
   /* Peeked face-down card */
