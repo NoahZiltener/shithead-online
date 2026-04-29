@@ -15,6 +15,14 @@ export type PileConstraint = 'none' | 'after2' | 'after7'
 
 export type GamePhase = 'setup' | 'playing' | 'finished'
 
+// Chat message sent between players in a room
+export interface ChatMessage {
+  senderId: string
+  senderName: string
+  text: string
+  timestamp: number // milliseconds since epoch
+}
+
 // What a player sees about themselves
 export interface SelfView {
   id: string
@@ -64,11 +72,12 @@ export type ClientMessage =
   | { type: 'pick_up_pile' }
   | { type: 'peek_face_down'; fdId: string }
   | { type: 'return_to_lobby' }
+  | { type: 'send_message'; text: string }
 
 // Server → Client messages
 export type ServerMessage =
   | { type: 'room_created'; playerId: string; roomId: string; gameMode: GameMode }
-  | { type: 'joined'; playerId: string; roomId: string; adminId: string; players: { id: string; name: string }[]; gameMode: GameMode }
+  | { type: 'joined'; playerId: string; roomId: string; adminId: string; players: { id: string; name: string }[]; gameMode: GameMode; chatHistory: ChatMessage[] }
   | { type: 'player_joined'; playerId: string; playerName: string }
   | { type: 'player_left'; playerId: string }
   | { type: 'admin_changed'; adminId: string }
@@ -78,5 +87,6 @@ export type ServerMessage =
   | { type: 'game_state'; state: ClientGameState }
   | { type: 'face_up_set'; playerId: string; allReady: boolean }
   | { type: 'face_down_revealed'; fdId: string; card: Card }
+  | { type: 'chat_message'; message: ChatMessage }
   | { type: 'lobby_reset' }
   | { type: 'error'; message: string }
