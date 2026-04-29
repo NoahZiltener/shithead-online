@@ -256,12 +256,16 @@
   /* ── Layout ── */
   .w-body {
     width: 100%;
-    max-width: 860px;
+    max-width: 1200px;
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 1.25rem;
     align-items: start;
     animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  @media (max-width: 1024px) {
+    .w-body { grid-template-columns: 1fr 1fr; }
   }
 
   @media (max-width: 640px) {

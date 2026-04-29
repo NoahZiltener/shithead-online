@@ -1,4 +1,4 @@
-import type { Card, ClientGameState, ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
+import type { Card, ChatMessage, ClientGameState, ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
 
 type Player = { id: string; name: string }
 
@@ -19,6 +19,7 @@ class GameConnection {
   error = $state<string | null>(null)
   peekedFdId = $state<string | null>(null)
   peekedCard = $state<Card | null>(null)
+  chatMessages = $state<ChatMessage[]>([])
 
   #ws: WebSocket | null = null
   #myName = ''
@@ -75,6 +76,7 @@ class GameConnection {
         this.adminId = msg.adminId
         this.gameMode = msg.gameMode
         this.players = msg.players
+        this.chatMessages = msg.chatHistory
         sessionStorage.setItem(SESSION_KEY, JSON.stringify({ playerName: this.#myName, roomId: msg.roomId }))
         break
       case 'player_joined':
@@ -126,6 +128,9 @@ class GameConnection {
         this.peekedFdId = null
         this.peekedCard = null
         break
+      case 'chat_message':
+        this.chatMessages = [...this.chatMessages, msg.message]
+        break
       case 'error':
         this.error = msg.message
         if (!this.playerId) sessionStorage.removeItem(SESSION_KEY)
@@ -173,6 +178,10 @@ class GameConnection {
 
   returnToLobby(): void {
     this.#send({ type: 'return_to_lobby' })
+  }
+
+  sendMessage(text: string): void {
+    this.#send({ type: 'send_message', text })
   }
 
   clearPeek(): void {

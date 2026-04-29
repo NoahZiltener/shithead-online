@@ -273,8 +273,9 @@
 </script>
 
 {#if gs && self}
-<!-- Game table -->
-<div class="game-table">
+<div class="game-viewport">
+  <!-- Game table -->
+  <div class="game-table">
 
   <!-- Opponents row -->
   <div class="opponents-row">
@@ -498,6 +499,7 @@
     <button class="btn-leave" onclick={() => connection.disconnect()}>Leave Game</button>
   </div>
 </div>
+</div>
 
 <!-- Game-over overlay -->
 {#if phase === 'finished'}
@@ -531,8 +533,14 @@
 {/if}
 
 <style>
+  .game-viewport {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
   .game-table {
-    min-height: 100vh;
+    flex: 1;
     background:
       radial-gradient(ellipse 120% 60% at 50% 50%, var(--felt) 0%, #0e1a13 55%, var(--bg) 100%);
     display: flex;
@@ -541,7 +549,18 @@
     justify-content: space-between;
     padding: 4.5rem 1rem 1rem;
     position: relative;
-    overflow: hidden;
+    overflow: auto;
+  }
+
+  @media (max-width: 768px) {
+    .game-viewport {
+      flex-direction: column;
+      height: auto;
+    }
+
+    .game-table {
+      min-height: auto;
+    }
   }
 
   /* ── Opponents ── */

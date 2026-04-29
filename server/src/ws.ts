@@ -5,6 +5,7 @@ import type { ClientMessage, GameMode, ServerMessage } from '../../shared/src/ty
 import { dealCards, getClientState, pickUpPile, playCards, setFaceUp, throwInCards } from './game/index.ts'
 import { createRoom, getRoom, MAX_PLAYERS, removePlayer, type Room, type RoomStore } from './rooms.ts'
 import { sendGameSummary } from './discord.ts'
+import { addChatMessage, getChatHistory } from './chat.ts'
 
 const logger = getLogger(['shithead-online', 'ws'])
 
@@ -80,7 +81,8 @@ export function createWsHandler(store: RoomStore) {
           room.players.set(playerId, { id: playerId, name: msg.playerName, ws })
           logger.info('Player {playerName} joined room {roomId}', { playerName: msg.playerName, playerId, roomId: room.id })
           const players = [...room.players.values()].map((p) => ({ id: p.id, name: p.name }))
-          send(ws, { type: 'joined', playerId, roomId: room.id, adminId: room.adminId, players, gameMode: room.gameMode })
+          const chatHistory = getChatHistory(room)
+          send(ws, { type: 'joined', playerId, roomId: room.id, adminId: room.adminId, players, gameMode: room.gameMode, chatHistory })
           broadcast(room, { type: 'player_joined', playerId, playerName: msg.playerName }, playerId)
           return
         }
@@ -153,6 +155,25 @@ export function createWsHandler(store: RoomStore) {
             const state = getClientState(room.gameState, pid)
             conn.ws.send(JSON.stringify({ type: 'game_started', state } satisfies ServerMessage))
           }
+          return
+        }
+
+        // ── Chat (works before, during, and after game) ──────────────────────
+
+        if (msg.type === 'send_message') {
+          const player = room.players.get(playerId)
+          if (!player) {
+            send(ws, { type: 'error', message: 'Player not found in room.' })
+            return
+          }
+
+          const result = addChatMessage(room, playerId, player.name, msg.text)
+          if (!result.success) {
+            send(ws, { type: 'error', message: result.error || 'Failed to send message.' })
+            return
+          }
+
+          broadcast(room, { type: 'chat_message', message: result.message! })
           return
         }
 

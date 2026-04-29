@@ -6,6 +6,7 @@
   import GameView from './views/GameView.svelte'
   import DemoView from './views/DemoView.svelte'
   import FeedbackButton from '$lib/FeedbackButton.svelte'
+  import ChatPanel from '$lib/ChatPanel.svelte'
 
   type Screen = 'home' | 'lobby' | 'game' | 'demo'
   let screen = $state<Screen>('home')
@@ -48,6 +49,9 @@
 {/if}
 
 <FeedbackButton screen={screen === 'demo' ? 'home' : screen} />
+{#if screen === 'lobby' || screen === 'game'}
+  <ChatPanel />
+{/if}
 
 <style>
   .nav-bar {
