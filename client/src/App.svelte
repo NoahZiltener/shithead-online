@@ -57,7 +57,7 @@
   <ChatPanel />
 {/if}
 
-{#if screen !== 'game'}
+{#if screen === 'home' || screen === 'demo'}
   <footer class="app-footer">
     <div class="footer-content">
       <span class="version">v{APP_VERSION}</span>
@@ -74,7 +74,7 @@
     z-index: 100;
     display: flex;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: calc(0.75rem + var(--safe-area-top)) 1.5rem var(--safe-area-right);
     background: rgba(14,14,24,0.8);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -99,7 +99,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 1.5rem calc(0.75rem + var(--safe-area-bottom));
     background: rgba(14,14,24,0.6);
     backdrop-filter: blur(12px);
     border-top: 1px solid rgba(255,255,255,0.05);
@@ -131,5 +131,25 @@
   .developer a:hover {
     opacity: 0.8;
     text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .nav-bar {
+      min-height: calc(4rem + var(--safe-area-top));
+      padding-top: calc(0.45rem + var(--safe-area-top));
+      padding-left: calc(1rem + var(--safe-area-left));
+      padding-right: calc(7.2rem + var(--safe-area-right));
+      padding-bottom: 0.55rem;
+    }
+
+    .nav-logo {
+      font-size: 1.2rem;
+    }
+
+    .app-footer {
+      padding-left: calc(1rem + var(--safe-area-left));
+      padding-right: calc(1rem + var(--safe-area-right));
+      font-size: 0.75rem;
+    }
   }
 </style>

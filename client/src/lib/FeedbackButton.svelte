@@ -55,8 +55,12 @@
 </button>
 
 {#if open}
+  <button class="panel-backdrop" onclick={toggle} aria-label="Close feedback panel"></button>
   <div class="panel">
-    <h3>Send Feedback</h3>
+    <div class="panel-header">
+      <h3>Send Feedback</h3>
+      <button class="close-btn" onclick={toggle} aria-label="Close feedback">✕</button>
+    </div>
 
     {#if status === 'sent'}
       <p class="success">Thanks for your feedback!</p>
@@ -90,7 +94,7 @@
 <style>
   .fab {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: calc(2.25rem + var(--safe-area-bottom));
     right: 1.5rem;
     z-index: 200;
     width: 3rem;
@@ -108,16 +112,26 @@
     transition: transform 0.15s, box-shadow 0.2s;
   }
 
-  .fab:hover {
+  .fab:active {
     transform: translateY(-2px);
     box-shadow: 0 8px 28px rgba(247, 37, 133, 0.6);
+  }
+
+  .panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 280;
+    border: none;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-tap-highlight-color: transparent;
   }
 
   .panel {
     position: fixed;
     bottom: 5.5rem;
     right: 1.5rem;
-    z-index: 200;
+    z-index: 300;
     width: 300px;
     background: rgba(14, 14, 24, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -126,6 +140,9 @@
     backdrop-filter: blur(16px);
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
     animation: slideUp 0.2s ease both;
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto;
+    margin-right: var(--safe-area-right);
   }
 
   @keyframes slideUp {
@@ -138,7 +155,33 @@
     font-size: 1.3rem;
     letter-spacing: 0.1em;
     color: var(--cream);
-    margin: 0 0 1.2rem;
+    margin: 0;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--cream);
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    min-height: 40px;
+    transition: color 0.2s;
+  }
+
+  .close-btn:active {
+    color: var(--neon);
   }
 
   .field {
@@ -162,7 +205,7 @@
     border-radius: 8px;
     color: var(--cream);
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem;
+    font-size: 1rem;
     padding: 0.6rem 0.8rem;
     outline: none;
     resize: vertical;
@@ -190,9 +233,10 @@
     margin-top: 0.5rem;
     transition: transform 0.15s, box-shadow 0.2s;
     box-shadow: 0 3px 14px rgba(247, 37, 133, 0.35);
+    min-height: 44px;
   }
 
-  .btn-primary:hover:not(:disabled) {
+  .btn-primary:active:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(247, 37, 133, 0.5);
   }
@@ -216,5 +260,54 @@
     font-size: 0.82rem;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.9rem;
+  }
+
+  @media (max-width: 640px) {
+    .fab {
+      width: 2.5rem !important;
+      height: 2.5rem !important;
+      font-size: 0.95rem !important;
+      top: calc(0.75rem + var(--safe-area-top)) !important;
+      bottom: auto !important;
+      right: max(1rem, calc(1rem + var(--safe-area-right))) !important;
+      left: auto !important;
+    }
+
+    .panel {
+      position: fixed !important;
+      width: calc(100vw - 2rem) !important;
+      max-width: 360px !important;
+      height: auto !important;
+      max-height: 75vh !important;
+      top: 50% !important;
+      left: 50% !important;
+      right: auto !important;
+      bottom: auto !important;
+      transform: translate(-50%, -50%) !important;
+      margin-right: 0 !important;
+      margin-left: 0 !important;
+      border-radius: 16px !important;
+      padding-bottom: 1.25rem !important;
+      animation: none !important;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+    }
+
+    .field label {
+      font-size: 0.65rem;
+    }
+
+    .field input,
+    .field textarea {
+      font-size: 16px;
+      padding: 0.5rem 0.6rem;
+    }
+
+    .btn-primary {
+      font-size: 1rem;
+      padding: 0.55rem;
+    }
   }
 </style>

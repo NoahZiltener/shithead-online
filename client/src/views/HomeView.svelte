@@ -84,7 +84,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 5rem 2rem 2rem;
+    padding: calc(5rem + var(--safe-area-top)) 2rem calc(5rem + var(--safe-area-bottom));
   }
 
   .logo {
@@ -202,6 +202,7 @@
     transition: transform 0.15s, box-shadow 0.2s;
     box-shadow: 0 4px 20px rgba(247,37,133,0.35);
     display: block;
+    min-height: 48px;
   }
 
   .btn-primary::after {
@@ -212,12 +213,9 @@
     pointer-events: none;
   }
 
-  .btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(247,37,133,0.5);
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(1px);
   }
-
-  .btn-primary:active:not(:disabled) { transform: translateY(0); }
 
   .btn-primary:disabled {
     opacity: 0.5;
@@ -254,16 +252,53 @@
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
     display: block;
+    min-height: 48px;
   }
 
-  .btn-secondary:hover:not(:disabled) {
-    border-color: rgba(255,255,255,0.3);
+  .btn-secondary:active:not(:disabled) {
     background: rgba(255,255,255,0.04);
   }
 
   .btn-secondary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 640px) {
+    .lobby-wrap {
+      padding: calc(4.75rem + var(--safe-area-top)) 1rem calc(5rem + var(--safe-area-bottom));
+    }
+
+    .logo {
+      margin-bottom: 2rem;
+    }
+
+    .logo-title {
+      font-size: clamp(3rem, 12vw, 6rem);
+    }
+
+    .logo-sub {
+      font-size: 1.2rem;
+    }
+
+    .lobby-card {
+      padding: 1.75rem 1.5rem;
+      border-radius: 12px;
+    }
+
+    h2 {
+      font-size: 1.3rem;
+    }
+
+    .btn-primary {
+      font-size: 1.2rem;
+      padding: 0.75rem;
+    }
+
+    .btn-secondary {
+      font-size: 1rem;
+      padding: 0.65rem;
+    }
   }
 
 </style>
