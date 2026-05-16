@@ -14,6 +14,17 @@
   --text: #e8e8e8;
   --muted: #666;
   --red: #e63946;
+  
+  /* Safe area insets for notched devices */
+  --safe-area-top: max(0px, env(safe-area-inset-top));
+  --safe-area-bottom: max(0px, env(safe-area-inset-bottom));
+  --safe-area-left: max(0px, env(safe-area-inset-left));
+  --safe-area-right: max(0px, env(safe-area-inset-right));
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
 }
 
 body {
@@ -23,9 +34,11 @@ body {
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-touch-callout: none;
 }
 
-/* Noise texture overlay */
+/* Noise texture overlay - optimized to prevent jank */
 body::before {
   content: '';
   position: fixed;
@@ -38,6 +51,7 @@ body::before {
 
 #app {
   width: 100%;
+  height: 100%;
 }
 
 @keyframes fadeUp {

@@ -5,6 +5,7 @@
   import LobbyView from './views/LobbyView.svelte'
   import GameView from './views/GameView.svelte'
   import DemoView from './views/DemoView.svelte'
+  import DemoPlayView from './views/DemoPlayView.svelte'
   import FeedbackButton from '$lib/FeedbackButton.svelte'
   import ChatPanel from '$lib/ChatPanel.svelte'
 
@@ -12,7 +13,7 @@
   const DEVELOPER_NAME = 'Noah'
   const GITHUB_URL = 'https://github.com/NoahZiltener'
 
-  type Screen = 'home' | 'lobby' | 'game' | 'demo'
+  type Screen = 'home' | 'lobby' | 'game' | 'demo' | 'demo-play'
   let screen = $state<Screen>('home')
 
   onMount(() => {
@@ -22,6 +23,7 @@
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
       if (e.shiftKey && e.key === 'D' && screen === 'home' && !typing) screen = 'demo'
       if (e.key === 'Escape' && screen === 'demo') screen = 'home'
+      if (e.key === 'Escape' && screen === 'demo-play') screen = 'home'
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -29,7 +31,7 @@
 
   $effect(() => {
     if (!connection.playerId) {
-      if (screen !== 'demo') screen = 'home'
+      if (screen !== 'demo' && screen !== 'demo-play') screen = 'home'
     } else if (connection.gameStarted) {
       screen = 'game'
     } else {
@@ -46,18 +48,29 @@
   <GameView />
 {:else if screen === 'lobby'}
   <LobbyView />
+{:else if screen === 'demo-play'}
+  <DemoPlayView
+    onBack={() => { screen = 'home' }}
+    onOpenGallery={() => { screen = 'demo' }}
+  />
 {:else if screen === 'demo'}
-  <DemoView onBack={() => { screen = 'home' }} />
+  <DemoView
+    onBack={() => { screen = 'home' }}
+    onOpenPlayDemo={() => { screen = 'demo-play' }}
+  />
 {:else}
-  <HomeView notice={connection.error} />
+  <HomeView
+    notice={connection.error}
+    onOpenDemo={() => { screen = 'demo-play' }}
+  />
 {/if}
 
-<FeedbackButton screen={screen === 'demo' ? 'home' : screen} />
+<FeedbackButton screen={screen === 'demo' || screen === 'demo-play' ? 'home' : screen} />
 {#if screen === 'lobby' || screen === 'game'}
   <ChatPanel />
 {/if}
 
-{#if screen !== 'game'}
+{#if screen === 'home' || screen === 'demo' || screen === 'demo-play'}
   <footer class="app-footer">
     <div class="footer-content">
       <span class="version">v{APP_VERSION}</span>
@@ -74,7 +87,7 @@
     z-index: 100;
     display: flex;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: calc(0.75rem + var(--safe-area-top)) 1.5rem var(--safe-area-right);
     background: rgba(14,14,24,0.8);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -99,7 +112,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 1.5rem calc(0.75rem + var(--safe-area-bottom));
     background: rgba(14,14,24,0.6);
     backdrop-filter: blur(12px);
     border-top: 1px solid rgba(255,255,255,0.05);
@@ -131,5 +144,25 @@
   .developer a:hover {
     opacity: 0.8;
     text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .nav-bar {
+      min-height: calc(4rem + var(--safe-area-top));
+      padding-top: calc(0.45rem + var(--safe-area-top));
+      padding-left: calc(1rem + var(--safe-area-left));
+      padding-right: calc(7.2rem + var(--safe-area-right));
+      padding-bottom: 0.55rem;
+    }
+
+    .nav-logo {
+      font-size: 1.2rem;
+    }
+
+    .app-footer {
+      padding-left: calc(1rem + var(--safe-area-left));
+      padding-right: calc(1rem + var(--safe-area-right));
+      font-size: 0.75rem;
+    }
   }
 </style>

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import type { Card, Rank, Suit } from '$shared/types.ts'
   import { connection } from '$lib/ws.svelte'
+  import MobileGameBoard from '$lib/MobileGameBoard.svelte'
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const FACE_RANKS: Record<number, string> = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }
@@ -270,9 +272,44 @@
       return { card: c, tx: centerX + offset * spread, rot: offset * rotSpread, ty: Math.abs(offset) * 3 }
     })
   })
+
+  let isMobileViewport = $state(false)
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 640px)')
+    const onChange = () => { isMobileViewport = media.matches }
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  })
 </script>
 
 {#if gs && self}
+{#if isMobileViewport}
+  <MobileGameBoard
+    gameState={gs}
+    playerId={connection.playerId}
+    disconnectedIds={connection.disconnectedInGameIds}
+    peekedFdId={connection.peekedFdId}
+    peekedCard={connection.peekedCard}
+    error={connection.error}
+    selectedIds={selectedIds}
+    sortedHandCards={sortedHandCards}
+    canPickUp={canPickUp}
+    throwInRank={throwInRank}
+    throwInIds={throwInIds}
+    onToggleSetup={toggleSetup}
+    onTogglePlay={togglePlay}
+    onPlayFaceDown={playFaceDown}
+    onConfirmSetup={confirmSetup}
+    onPlaySelected={playSelected}
+    onThrowIn={doThrowIn}
+    onPickUpPile={() => connection.pickUpPile()}
+    onDismissError={() => { connection.error = null }}
+    onLeave={() => connection.disconnect()}
+    cardIsPlayable={cardIsPlayable}
+  />
+{:else}
 <div class="game-viewport">
   <!-- Game table -->
   <div class="game-table">
@@ -500,6 +537,7 @@
   </div>
 </div>
 </div>
+{/if}
 
 <!-- Game-over overlay -->
 {#if phase === 'finished'}
@@ -560,6 +598,17 @@
 
     .game-table {
       min-height: auto;
+      padding-top: calc(3.5rem + var(--safe-area-top));
+      padding-bottom: calc(1rem + var(--safe-area-bottom));
+      padding-left: var(--safe-area-left);
+      padding-right: var(--safe-area-right);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .game-table {
+      padding: calc(3.5rem + var(--safe-area-top)) 0.5rem calc(5.5rem + var(--safe-area-bottom));
+      gap: 0.75rem;
     }
   }
 
@@ -681,7 +730,33 @@
     background: rgba(255,255,255,0.03);
   }
 
-  /* ── Full cards ── */
+  @media (max-width: 640px) {
+    .opponents-row {
+      gap: 1rem;
+      padding: 0.25rem 0.5rem;
+    }
+
+    .opponent-name-tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+    }
+
+    .opp-hand-count {
+      font-size: 0.95rem;
+    }
+
+    .mini-card {
+      width: 36px;
+      height: 50px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .mini-rank { font-size: 0.8rem; }
+    .mini-suit { font-size: 0.6rem; }
+  }
+
+  /* Full cards */
   .card {
     width: 72px;
     height: 104px;
@@ -755,8 +830,8 @@
     cursor: pointer;
   }
 
-  .card.playable:hover {
-    transform: translateY(-8px) !important;
+  .card.playable:active {
+    transform: translateY(-4px) !important;
     box-shadow: 3px 10px 24px rgba(0,0,0,0.6) !important;
   }
 
@@ -824,7 +899,7 @@
     opacity: 0.9;
   }
 
-  .card.browsable:hover {
+  .card.browsable:active {
     opacity: 1;
     box-shadow: 3px 6px 16px rgba(0,0,0,0.5), 0 0 10px rgba(147,112,219,0.4);
     transform: translateY(-4px);
@@ -847,6 +922,49 @@
     font-size: 2.2rem;
     color: rgba(220,50,50,0.9);
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  }
+
+  @media (max-width: 640px) {
+    .card {
+      width: 60px;
+      height: 86px;
+      padding: 5px 6px;
+      border-radius: 6px;
+    }
+
+    .card.sm {
+      width: 52px;
+      height: 75px;
+      border-radius: 5px;
+    }
+
+    .card-rank { font-size: 1rem; }
+    .card-suit { font-size: 0.7rem; }
+    .card-bg-suit { font-size: 1.4rem; }
+
+    .fd-question { font-size: 1.8rem; }
+
+    .top-card-count {
+      width: 16px;
+      height: 16px;
+      font-size: 0.6rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .card {
+      width: 52px;
+      height: 75px;
+      padding: 4px 5px;
+    }
+
+    .card.sm {
+      width: 44px;
+      height: 63px;
+    }
+
+    .card-rank { font-size: 0.85rem; }
+    .card-suit { font-size: 0.6rem; }
   }
 
   /* Effective top indicator */
@@ -977,9 +1095,11 @@
     cursor: pointer;
     line-height: 1;
     transition: background 0.15s, color 0.15s;
+    min-height: 36px;
+    min-width: 36px;
   }
 
-  .btn-spread:hover {
+  .btn-spread:active {
     background: rgba(255,255,255,0.13);
     color: rgba(255,255,255,0.85);
   }
@@ -1003,6 +1123,7 @@
     flex-wrap: nowrap;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.2) transparent;
+    -webkit-overflow-scrolling: touch;
   }
 
   .your-hand.spread .hand-card {
@@ -1022,13 +1143,13 @@
   }
 
   /* Hover lift for all hand cards (including when not your turn, for browsing) */
-  .hand-card:hover {
+  .hand-card:active {
     transform: translateY(-12px) rotate(0deg) !important;
     box-shadow: 4px 8px 24px rgba(0,0,0,0.7) !important;
     z-index: 100 !important;
   }
 
-  .hand-card.selectable:hover {
+  .hand-card.selectable:active {
     transform: translateY(-16px) rotate(0deg) !important;
     box-shadow: 4px 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(247,37,133,0.25) !important;
     z-index: 100 !important;
@@ -1041,7 +1162,7 @@
     animation: throw-in-pulse 1s ease-in-out infinite alternate;
   }
 
-  .hand-card.throw-in:hover {
+  .hand-card.throw-in:active {
     transform: translateY(-16px) rotate(0deg) !important;
     box-shadow: 0 0 24px 6px rgba(255, 165, 0, 0.9), 4px 8px 24px rgba(0,0,0,0.7) !important;
     z-index: 10 !important;
@@ -1064,9 +1185,10 @@
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
     animation: throw-in-btn-pulse 1s ease-in-out infinite alternate;
+    min-height: 44px;
   }
 
-  .btn-throw-in:hover {
+  .btn-throw-in:active {
     background: linear-gradient(135deg, rgba(255,140,0,0.35), rgba(255,80,0,0.35));
     box-shadow: 0 0 16px rgba(255,140,0,0.4);
   }
@@ -1083,12 +1205,36 @@
     padding: 0.5rem;
   }
 
+  @media (max-width: 640px) {
+    .your-name-tag {
+      font-size: 0.95rem;
+    }
+
+    .your-facedown-row, .your-faceup-row {
+      gap: 4px;
+    }
+
+    .your-hand {
+      height: 100px;
+      max-width: 100%;
+    }
+
+    .btn-throw-in {
+      font-size: 0.9rem;
+      padding: 0.4rem 1rem;
+    }
+  }
+
   /* ── Action row ── */
   .action-row {
     display: flex;
     gap: 0.75rem;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
     min-height: 2.5rem;
+    width: 100%;
+    max-width: 500px;
   }
 
   .btn-action {
@@ -1103,11 +1249,13 @@
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.2s, opacity 0.15s;
     box-shadow: 0 4px 16px rgba(247,37,133,0.35);
+    min-height: 44px;
+    min-width: 120px;
   }
 
-  .btn-action:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(247,37,133,0.5);
+  .btn-action:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 4px 16px rgba(247,37,133,0.35);
   }
 
   .btn-action:disabled {
@@ -1126,9 +1274,10 @@
     padding: 0.5rem 1.2rem;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
+    min-height: 44px;
   }
 
-  .btn-pickup:hover {
+  .btn-pickup:active {
     background: rgba(255,190,11,0.1);
     box-shadow: 0 0 12px rgba(255,190,11,0.2);
   }
@@ -1146,6 +1295,7 @@
     align-items: center;
     gap: 0.75rem;
     animation: fadeUp 0.2s ease;
+    max-width: 90%;
   }
 
   .error-dismiss {
@@ -1159,7 +1309,7 @@
     line-height: 1;
   }
 
-  .error-dismiss:hover { opacity: 1; }
+  .error-dismiss:active { opacity: 1; }
 
   .btn-leave {
     background: none;
@@ -1172,11 +1322,34 @@
     padding: 0.35rem 1rem;
     transition: border-color 0.2s, color 0.2s;
     margin-top: 0.25rem;
+    min-height: 36px;
   }
 
-  .btn-leave:hover {
+  .btn-leave:active {
     border-color: var(--red);
     color: var(--red);
+  }
+
+  @media (max-width: 640px) {
+    .action-row {
+      gap: 0.5rem;
+    }
+
+    .btn-action {
+      font-size: 0.95rem;
+      padding: 0.5rem 1.2rem;
+      min-width: 100px;
+    }
+
+    .btn-pickup {
+      font-size: 0.9rem;
+      padding: 0.4rem 1rem;
+    }
+
+    .error-notice {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+    }
   }
 
   /* ── Loser / Winner overlay ── */
@@ -1191,6 +1364,7 @@
     justify-content: center;
     gap: 1rem;
     animation: fadeIn 0.4s ease;
+    padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
   }
 
   .loser-overlay.is-winner {
@@ -1258,11 +1432,32 @@
     margin-top: 1rem;
     transition: transform 0.15s, box-shadow 0.2s;
     box-shadow: 0 4px 20px rgba(247,37,133,0.35);
+    min-height: 48px;
   }
 
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(247,37,133,0.5);
+  .btn-primary:active {
+    transform: translateY(1px);
+    box-shadow: 0 4px 20px rgba(247,37,133,0.35);
+  }
+
+  @media (max-width: 640px) {
+    .loser-header {
+      font-size: 4rem;
+    }
+
+    .loser-title, .winner-title {
+      font-size: clamp(2rem, 8vw, 4rem);
+    }
+
+    .loser-name, .winner-name {
+      font-size: 1.5rem;
+    }
+
+    .btn-primary {
+      font-size: 1rem;
+      padding: 0.6rem 1.8rem;
+      margin-top: 0.75rem;
+    }
   }
 
   /* ── Card rain ── */

@@ -14,6 +14,12 @@ export default defineConfig({
 
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'iPhone 13', use: { ...devices['iPhone 13'] } },
+    { name: 'iPhone 16 Pro', use: { 
+      ...devices['iPhone 16 Pro'],
+      viewport: { width: 390, height: 844 }
+    }},
+    { name: 'Pixel 7', use: { ...devices['Pixel 7'] } },
   ],
 
   webServer: [

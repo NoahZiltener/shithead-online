@@ -180,7 +180,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 6rem 1.5rem 2rem;
+    padding: calc(6rem + var(--safe-area-top)) 1.5rem calc(2rem + var(--safe-area-bottom));
   }
 
   /* ── Header ── */
@@ -248,9 +248,10 @@
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
     white-space: nowrap;
+    min-height: 36px;
   }
 
-  .copy-btn:hover { background: rgba(255,190,11,0.22); border-color: rgba(255,190,11,0.5); }
+  .copy-btn:active { background: rgba(255,190,11,0.22); border-color: rgba(255,190,11,0.5); }
   .copy-btn.copied { color: #4ade80; border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
 
   /* ── Layout ── */
@@ -269,7 +270,28 @@
   }
 
   @media (max-width: 640px) {
-    .w-body { grid-template-columns: 1fr; }
+    .waiting-wrap {
+      padding: calc(4.75rem + var(--safe-area-top)) 1rem calc(7rem + var(--safe-area-bottom));
+    }
+
+    .w-header {
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .w-title {
+      font-size: 1rem;
+    }
+
+    .room-code-val {
+      font-size: 1.8rem;
+    }
+
+    .w-body { 
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
   }
 
   /* ── Players panel ── */
@@ -312,10 +334,11 @@
     padding: 0.85rem 1.25rem;
     border-bottom: 1px solid rgba(255,255,255,0.04);
     transition: background 0.15s;
+    min-height: 64px;
   }
 
   .player-row:last-child { border-bottom: none; }
-  .player-row:hover { background: rgba(255,255,255,0.02); }
+  .player-row:active { background: rgba(255,255,255,0.02); }
 
   .p-avatar {
     width: 40px;
@@ -392,9 +415,10 @@
     font-family: 'DM Sans', sans-serif;
     transition: border-color 0.2s, color 0.2s, background 0.2s;
     flex-shrink: 0;
+    min-height: 32px;
   }
 
-  .kick-btn:hover {
+  .kick-btn:active {
     border-color: var(--red);
     color: var(--red);
     background: rgba(230,57,70,0.08);
@@ -437,6 +461,7 @@
   .deck-toggle {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .deck-option {
@@ -450,20 +475,20 @@
     transition: border-color 0.2s, background 0.2s;
     position: relative;
     font-family: inherit;
+    min-height: 44px;
+    min-width: 80px;
   }
 
   .deck-option:disabled {
     cursor: default;
   }
 
-  .mode-display {
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
+  .deck-option.selected {
+    border-color: var(--neon);
+    background: rgba(247,37,133,0.08);
   }
 
-  .deck-option.selected {
+  .deck-option:active {
     border-color: var(--neon);
     background: rgba(247,37,133,0.08);
   }
@@ -546,11 +571,12 @@
     transition: transform 0.15s, box-shadow 0.2s;
     box-shadow: 0 4px 24px rgba(255,190,11,0.4);
     animation: pulse-gold 2s ease-in-out infinite;
+    min-height: 52px;
   }
 
-  .btn-start:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 36px rgba(255,190,11,0.55);
+  .btn-start:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 4px 24px rgba(255,190,11,0.4);
     animation: none;
   }
 
@@ -579,10 +605,78 @@
     font-size: 0.8rem;
     padding: 0.4rem 1rem;
     transition: border-color 0.2s, color 0.2s;
+    min-height: 40px;
   }
 
-  .btn-leave:hover {
+  .btn-leave:active {
     border-color: var(--red);
     color: var(--red);
+  }
+
+  @media (max-width: 640px) {
+    .player-row {
+      padding: 0.75rem 1rem;
+      min-height: 56px;
+    }
+
+    .p-avatar {
+      width: 36px;
+      height: 36px;
+      font-size: 0.95rem;
+    }
+
+    .p-name {
+      font-size: 0.9rem;
+    }
+
+    .kick-btn {
+      min-height: 36px;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+    }
+
+    .deck-option {
+      min-height: 40px;
+      padding: 0.5rem 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    .deck-option-name {
+      font-size: 0.85rem;
+      margin-bottom: 0.1rem;
+    }
+
+    .deck-option-desc {
+      font-size: 0.65rem;
+    }
+
+    .btn-start {
+      font-size: 1.3rem;
+      padding: 0.65rem;
+      min-height: 48px;
+    }
+
+    .right-col {
+      gap: 1rem;
+    }
+
+    .settings-panel, .start-panel {
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .panel-head {
+      padding: 0.85rem 1rem;
+    }
+
+    .setting-row {
+      padding: 0.85rem 1rem;
+    }
+
+    .btn-leave {
+      width: 100%;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+    }
   }
 </style>
