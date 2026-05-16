@@ -1,7 +1,13 @@
 <script lang="ts">
   import { connection } from '$lib/ws.svelte'
 
-  let { notice = null }: { notice?: string | null } = $props()
+  let {
+    notice = null,
+    onOpenDemo,
+  }: {
+    notice?: string | null
+    onOpenDemo?: () => void
+  } = $props()
 
   let name = $state('')
   let roomCode = $state('')
@@ -61,6 +67,7 @@
     >
       Create New Room
     </button>
+
 
   </div>
 </div>
@@ -263,6 +270,8 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+
 
   @media (max-width: 640px) {
     .lobby-wrap {

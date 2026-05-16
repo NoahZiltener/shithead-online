@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import type { Card, Rank, Suit } from '$shared/types.ts'
   import { connection } from '$lib/ws.svelte'
+  import MobileGameBoard from '$lib/MobileGameBoard.svelte'
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const FACE_RANKS: Record<number, string> = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }
@@ -270,9 +272,44 @@
       return { card: c, tx: centerX + offset * spread, rot: offset * rotSpread, ty: Math.abs(offset) * 3 }
     })
   })
+
+  let isMobileViewport = $state(false)
+
+  onMount(() => {
+    const media = window.matchMedia('(max-width: 640px)')
+    const onChange = () => { isMobileViewport = media.matches }
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  })
 </script>
 
 {#if gs && self}
+{#if isMobileViewport}
+  <MobileGameBoard
+    gameState={gs}
+    playerId={connection.playerId}
+    disconnectedIds={connection.disconnectedInGameIds}
+    peekedFdId={connection.peekedFdId}
+    peekedCard={connection.peekedCard}
+    error={connection.error}
+    selectedIds={selectedIds}
+    sortedHandCards={sortedHandCards}
+    canPickUp={canPickUp}
+    throwInRank={throwInRank}
+    throwInIds={throwInIds}
+    onToggleSetup={toggleSetup}
+    onTogglePlay={togglePlay}
+    onPlayFaceDown={playFaceDown}
+    onConfirmSetup={confirmSetup}
+    onPlaySelected={playSelected}
+    onThrowIn={doThrowIn}
+    onPickUpPile={() => connection.pickUpPile()}
+    onDismissError={() => { connection.error = null }}
+    onLeave={() => connection.disconnect()}
+    cardIsPlayable={cardIsPlayable}
+  />
+{:else}
 <div class="game-viewport">
   <!-- Game table -->
   <div class="game-table">
@@ -500,6 +537,7 @@
   </div>
 </div>
 </div>
+{/if}
 
 <!-- Game-over overlay -->
 {#if phase === 'finished'}

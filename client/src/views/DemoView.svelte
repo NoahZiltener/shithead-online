@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { onBack }: { onBack: () => void } = $props()
+  let { onBack, onOpenPlayDemo }: { onBack: () => void; onOpenPlayDemo: () => void } = $props()
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const FACE_RANKS: Record<number, string> = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }
@@ -121,6 +121,7 @@
 
   <header class="demo-header">
     <button class="btn-back" onclick={onBack}>← Back</button>
+    <button class="btn-play-demo" onclick={onOpenPlayDemo}>Mobile Play Demo</button>
     <div class="demo-title">UI Component Gallery</div>
     <div class="demo-subtitle">Review game components and interactions</div>
   </header>
@@ -407,6 +408,24 @@
   }
 
   .btn-back:hover { background: rgba(255,255,255,0.12); }
+
+  .btn-play-demo {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(247,37,133,0.18);
+    border: 1px solid rgba(247,37,133,0.45);
+    border-radius: 8px;
+    color: #ff8dc2;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.38rem 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-play-demo:hover { background: rgba(247,37,133,0.3); }
 
   .demo-title {
     font-family: 'Bebas Neue', sans-serif;
