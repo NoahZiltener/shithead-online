@@ -1,7 +1,9 @@
 <script lang="ts">
   import { connection } from '$lib/ws.svelte'
+  import type { BotDifficulty } from '$shared/types.ts'
 
   let copied = $state(false)
+  let botDifficulty = $state<BotDifficulty>('medium')
 
   async function copyCode() {
     if (!connection.roomId) return
@@ -12,6 +14,14 @@
 
   function kickPlayer(id: string) {
     connection.kickPlayer(id)
+  }
+
+  function addBot() {
+    connection.addBot(botDifficulty)
+  }
+
+  function removeBot(id: string) {
+    connection.removeBot(id)
   }
 
   const emptySlots = $derived(
@@ -56,30 +66,35 @@
         <span class="player-count-badge">{connection.players.length} / {connection.maxPlayers}</span>
       </div>
 
-      {#each connection.players as player, i (player.id)}
-        {@const isHost = player.id === connection.adminId}
-        {@const isMe = player.id === connection.playerId}
-        <div class="player-row">
-          <div
-            class="p-avatar"
-            class:is-host={isHost && !isMe}
-            class:is-you={isMe}
+        {#each connection.players as player, i (player.id)}
+          {@const isHost = player.id === connection.adminId}
+          {@const isMe = player.id === connection.playerId}
+          {@const isBot = player.isBot === true}
+          <div class="player-row">
+            <div
+              class="p-avatar"
+              class:is-host={isHost && !isMe}
+              class:is-you={isMe}
             style={!isHost && !isMe ? `border-color: ${avatarColor(i)}` : ''}
           >
             {player.name[0].toUpperCase()}
           </div>
-          <div class="p-info">
-            <div class="p-name" class:is-you={isMe}>{player.name}</div>
-            <div class="p-badges">
-              {#if isHost}<span class="badge badge-host">Host</span>{/if}
-              {#if isMe}<span class="badge badge-you">You</span>{/if}
+            <div class="p-info">
+              <div class="p-name" class:is-you={isMe}>{player.name}</div>
+              <div class="p-badges">
+                {#if isHost}<span class="badge badge-host">Host</span>{/if}
+                {#if isMe}<span class="badge badge-you">You</span>{/if}
+                {#if isBot}<span class="badge badge-bot">Bot</span>{/if}
+                {#if isBot && player.botDifficulty}<span class="badge badge-bot-difficulty">{player.botDifficulty}</span>{/if}
+              </div>
             </div>
+            {#if connection.isAdmin && !isMe && !isBot}
+              <button class="kick-btn kick" title="Kick {player.name}" onclick={() => kickPlayer(player.id)}>Kick</button>
+            {:else if connection.isAdmin && isBot}
+              <button class="kick-btn remove-bot" title="Remove {player.name}" onclick={() => removeBot(player.id)}>Remove</button>
+            {/if}
           </div>
-          {#if connection.isAdmin && !isMe}
-            <button class="kick-btn kick" title="Kick {player.name}" onclick={() => kickPlayer(player.id)}>Kick</button>
-          {/if}
-        </div>
-      {/each}
+        {/each}
 
       {#each { length: emptySlots } as _, i}
         <div class="player-row">
@@ -132,6 +147,22 @@
         </div>
 
         <div class="setting-note">Changes can only be made before the game starts.</div>
+
+        <div class="setting-row">
+          <div class="setting-label">Bots</div>
+          {#if connection.isAdmin}
+            <div class="bot-controls">
+              <select bind:value={botDifficulty} class="bot-difficulty-select">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+              <button class="bot-add-btn" onclick={addBot} disabled={connection.players.length >= connection.maxPlayers}>Add Bot</button>
+            </div>
+          {:else}
+            <p class="mode-display">Host controls bot setup</p>
+          {/if}
+        </div>
       </div>
 
       <!-- Start panel -->
@@ -402,6 +433,8 @@
 
   .badge-host { background: rgba(255,190,11,0.15); color: var(--gold); border: 1px solid rgba(255,190,11,0.25); }
   .badge-you  { background: rgba(247,37,133,0.12); color: var(--neon); border: 1px solid rgba(247,37,133,0.25); }
+  .badge-bot  { background: rgba(58,134,255,0.14); color: #93c5fd; border: 1px solid rgba(58,134,255,0.3); }
+  .badge-bot-difficulty { background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid rgba(255,255,255,0.15); text-transform: capitalize; }
 
   .kick-btn {
     background: none;
@@ -422,6 +455,17 @@
     border-color: var(--red);
     color: var(--red);
     background: rgba(230,57,70,0.08);
+  }
+
+  .kick-btn.remove-bot {
+    border-color: rgba(58,134,255,0.3);
+    color: rgba(147,197,253,0.8);
+  }
+
+  .kick-btn.remove-bot:active {
+    border-color: #3b82f6;
+    color: #93c5fd;
+    background: rgba(58,134,255,0.12);
   }
 
   /* ── Right column ── */
@@ -528,6 +572,43 @@
     color: rgba(255,255,255,0.2);
     padding: 0.6rem 1.25rem;
     font-style: italic;
+  }
+
+  .bot-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .bot-difficulty-select {
+    flex: 1;
+    min-height: 36px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 0 0.6rem;
+    text-transform: capitalize;
+  }
+
+  .bot-add-btn {
+    min-height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(58,134,255,0.4);
+    background: rgba(58,134,255,0.14);
+    color: #93c5fd;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    padding: 0 0.7rem;
+    cursor: pointer;
+  }
+
+  .bot-add-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   /* ── Start panel ── */

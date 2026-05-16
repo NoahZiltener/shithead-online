@@ -1,6 +1,6 @@
-import type { Card, ChatMessage, ClientGameState, ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
+import type { BotDifficulty, Card, ChatMessage, ClientGameState, ClientMessage, GameMode, ServerMessage } from '$shared/types.ts'
 
-type Player = { id: string; name: string }
+type Player = { id: string; name: string; isBot?: boolean; botDifficulty?: BotDifficulty }
 
 const SESSION_KEY = 'shithead_session'
 
@@ -80,7 +80,7 @@ class GameConnection {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify({ playerName: this.#myName, roomId: msg.roomId }))
         break
       case 'player_joined':
-        this.players = [...this.players, { id: msg.playerId, name: msg.playerName }]
+        this.players = [...this.players, { id: msg.playerId, name: msg.playerName, isBot: msg.isBot, botDifficulty: msg.botDifficulty }]
         break
       case 'player_left':
         this.players = this.players.filter((p) => p.id !== msg.playerId)
@@ -146,6 +146,14 @@ class GameConnection {
 
   kickPlayer(playerId: string): void {
     this.#send({ type: 'kick_player', playerId })
+  }
+
+  addBot(difficulty: BotDifficulty, name?: string): void {
+    this.#send({ type: 'add_bot', difficulty, name })
+  }
+
+  removeBot(playerId: string): void {
+    this.#send({ type: 'remove_bot', playerId })
   }
 
   setGameMode(mode: GameMode): void {
