@@ -1,4 +1,4 @@
-# Deploying to Synology NAS (Docker)
+# Deploying to Synology NAS (Docker Hub)
 
 This guide covers building the Docker images on your dev machine and running them on a Synology NAS via Container Manager.
 
@@ -10,7 +10,7 @@ This guide covers building the Docker images on your dev machine and running the
 
 ---
 
-## 1. Build and push images
+## 1. Build and push a new Docker Hub deployment
 
 Run these from the **repo root** on your dev machine.
 
@@ -20,16 +20,27 @@ First, create a multi-arch builder (one-time setup):
 docker buildx create --use --name multiarch
 ```
 
+Set your Docker Hub namespace and release tag:
+
+```bash
+export DOCKERHUB_NAMESPACE=noahziltener5
+export IMAGE_TAG=v1.0.0
+```
+
 Then build and push both images for `amd64` and `arm64` in one step. Docker Hub will automatically serve the correct architecture to whatever machine pulls the image:
 
 ```bash
 docker login
 
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t noahziltener5/shithead-server:latest -f server/Dockerfile . --push
+  -t ${DOCKERHUB_NAMESPACE}/shithead-server:${IMAGE_TAG} \
+  -t ${DOCKERHUB_NAMESPACE}/shithead-server:latest \
+  -f server/Dockerfile . --push
 
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t noahziltener5/shithead-client:latest -f client/Dockerfile . --push
+  -t ${DOCKERHUB_NAMESPACE}/shithead-client:${IMAGE_TAG} \
+  -t ${DOCKERHUB_NAMESPACE}/shithead-client:latest \
+  -f client/Dockerfile . --push
 ```
 
 ---
@@ -49,9 +60,12 @@ cd /volume1/docker/shithead-online
 nano .env
 ```
 
-Paste the following and fill in any values you want to enable:
+Paste the following and set `DOCKERHUB_NAMESPACE` and `IMAGE_TAG` to the deployment you want to run:
 
 ```env
+DOCKERHUB_NAMESPACE=noahziltener5
+IMAGE_TAG=v1.0.0
+
 PORT=8000
 
 # Optional: Discord webhook URLs (leave blank to disable)
@@ -69,7 +83,7 @@ nano docker-compose.yml
 ```yaml
 services:
   server:
-    image: noahziltener5/shithead-server:latest
+    image: ${DOCKERHUB_NAMESPACE}/shithead-server:${IMAGE_TAG}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "deno", "eval", "const r = await fetch('http://localhost:8000/health'); if (!r.ok) Deno.exit(1)"]
@@ -80,7 +94,7 @@ services:
       - .env
 
   client:
-    image: noahziltener5/shithead-client:latest
+    image: ${DOCKERHUB_NAMESPACE}/shithead-client:${IMAGE_TAG}
     ports:
       - "8080:80"
     restart: unless-stopped
@@ -126,19 +140,26 @@ To make it accessible from outside your home network, set up a port forward on y
 
 ---
 
-## Updating to a new version
+## Updating to a new Docker Hub deployment
 
-On your dev machine, rebuild and push:
+On your dev machine, set a new tag and push:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t noahziltener5/shithead-server:latest -f server/Dockerfile . --push
+export DOCKERHUB_NAMESPACE=noahziltener5
+export IMAGE_TAG=v1.0.1
 
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t noahziltener5/shithead-client:latest -f client/Dockerfile . --push
+  -t ${DOCKERHUB_NAMESPACE}/shithead-server:${IMAGE_TAG} \
+  -t ${DOCKERHUB_NAMESPACE}/shithead-server:latest \
+  -f server/Dockerfile . --push
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ${DOCKERHUB_NAMESPACE}/shithead-client:${IMAGE_TAG} \
+  -t ${DOCKERHUB_NAMESPACE}/shithead-client:latest \
+  -f client/Dockerfile . --push
 ```
 
-Then on the NAS (SSH or Container Manager → Project → Action → Pull and restart):
+Then on the NAS, update `.env` with the new `IMAGE_TAG`, and redeploy (SSH or Container Manager → Project → Action → Pull and restart):
 
 ```bash
 cd /volume1/docker/shithead-online
